@@ -1,0 +1,30 @@
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
+import { MulterModule } from '@nestjs/platform-express';
+import { DocumentsController } from './documents.controller';
+import { DocumentsService } from './documents.service';
+import { DocumentModel, DocumentSchema } from './schemas/document.schema';
+import awsConfig from '../../config/aws.config';
+
+@Module({
+  imports: [
+    ConfigModule.forFeature(awsConfig),
+    MongooseModule.forFeature([
+      { name: DocumentModel.name, schema: DocumentSchema },
+    ]),
+    MulterModule.register({
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB limit
+      },
+      fileFilter: (req, file, callback) => {
+        // Allow all file types for now, but you can add restrictions here
+        callback(null, true);
+      },
+    }),
+  ],
+  controllers: [DocumentsController],
+  providers: [DocumentsService],
+  exports: [DocumentsService],
+})
+export class DocumentsModule {}
