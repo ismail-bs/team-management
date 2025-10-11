@@ -78,7 +78,7 @@ export function GroupInfoDialog({
     setEditedName(conversation.name || '');
   }, [conversation.name]);
 
-  const handleAddMember = async (member: any) => {
+  const handleAddMember = async (member: { id: string; name: string }) => {
     try {
       setLoading(true);
       await apiClient.addConversationParticipant(conversation._id, member.id);

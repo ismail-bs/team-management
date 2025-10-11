@@ -156,21 +156,23 @@ export function DepartmentManagementDialog({
       handleCancelEdit();
       await loadDepartments();
       if (onDepartmentChange) onDepartmentChange();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== Error saving department ===');
       console.error('Error object:', error);
-      console.error('Error response:', error?.response);
-      console.error('Error response data:', error?.response?.data);
-      console.error('Error message:', error?.response?.data?.message);
+      
+      const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('Error response:', axiosError?.response);
+      console.error('Error response data:', axiosError?.response?.data);
+      console.error('Error message:', axiosError?.response?.data?.message);
       
       let errorMessage = "Failed to save department";
       
       // Extract error message from response
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      if (axiosError?.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
         console.error('✅ Using backend message:', errorMessage);
-      } else if (error?.message) {
-        errorMessage = error.message;
+      } else if (axiosError?.message) {
+        errorMessage = axiosError.message;
         console.error('⚠️ Using error.message:', errorMessage);
       }
       

@@ -934,10 +934,6 @@ class ApiClient {
     const response = await this.client.patch(`/users/${id}`, userData);
     return response.data;
   }
-
-  async deleteUser(id: string): Promise<void> {
-    await this.client.delete(`/users/${id}`);
-  }
 }
 
 // Update the singleton instance  

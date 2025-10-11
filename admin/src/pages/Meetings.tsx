@@ -12,7 +12,7 @@ import { ViewMeetingDialog } from "@/components/dialogs/ViewMeetingDialog";
 import { EditMeetingDialog } from "@/components/dialogs/EditMeetingDialog";
 import { AddNotesSummaryDialog } from "@/components/dialogs/AddNotesSummaryDialog";
 import { toast } from "@/hooks/use-toast";
-import { apiClient, Meeting } from "@/lib/api";
+import { apiClient, Meeting, User } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, isToday, isTomorrow, isSameDay } from "date-fns";
 
@@ -225,14 +225,14 @@ export default function Meetings() {
       await apiClient.updateMeeting(selectedMeeting._id, {
         title: meetingData.title,
         description: meetingData.description,
-        type: meetingData.type as any,
+        type: meetingData.type as "team-meeting" | "one-on-one" | "project-review" | "standup" | "retrospective" | "other",
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
         location: meetingData.location,
         meetingLink: meetingData.meetingLink,
-        participants: meetingData.participants as any,
+        participants: meetingData.participants as unknown as User[],
         agenda: meetingData.agenda,
-      } as any);
+      });
       
       toast({
         title: "Success",

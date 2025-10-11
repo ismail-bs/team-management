@@ -70,10 +70,15 @@ export default function TeamChat() {
       setWsConnected(true);
 
       // Listen for new messages
-      websocketClient.on('message:new', (data: any) => {
+      websocketClient.on('message:new', (data: { message?: Message }) => {
         console.log('🔔 WebSocket message:new event received:', data);
         
-        const newMessage = data.message || data;
+        const newMessage = data.message;
+        if (!newMessage) {
+          console.error('❌ No message in WebSocket event data');
+          return;
+        }
+        
         console.log('📨 Processed message:', newMessage);
         console.log('👤 Message sender:', newMessage.sender?._id);
         console.log('👤 Current user:', user?._id);
@@ -81,7 +86,10 @@ export default function TeamChat() {
         console.log('📂 Message conversation:', newMessage.conversation);
 
         // Check if this message is from the current user (skip if it is - we already have optimistic update)
-        const isOwnMessage = newMessage.sender?._id === user?._id || newMessage.sender === user?._id;
+        const senderId = typeof newMessage.sender === 'string'
+          ? newMessage.sender
+          : newMessage.sender?._id;
+        const isOwnMessage = senderId === user?._id;
         
         if (isOwnMessage) {
           console.log('⏭️ Skipping own message (already added via optimistic update)');
@@ -111,11 +119,11 @@ export default function TeamChat() {
       });
 
       // Listen for user online/offline
-      websocketClient.on('user:online', (data: any) => {
+      websocketClient.on('user:online', (data: { userId?: string }) => {
         console.log('👤 User online:', data.userId);
       });
 
-      websocketClient.on('user:offline', (data: any) => {
+      websocketClient.on('user:offline', (data: { userId?: string }) => {
         console.log('👤 User offline:', data.userId);
       });
 
@@ -152,7 +160,7 @@ export default function TeamChat() {
       });
 
       // Listen for conversation updates (name, description, etc.)
-      websocketClient.on('conversation:updated', (data: { conversation?: any }) => {
+      websocketClient.on('conversation:updated', (data: { conversation?: Conversation }) => {
         console.log('🔄 Conversation updated event:', data);
         
         const updatedConv = data.conversation;
@@ -315,9 +323,10 @@ export default function TeamChat() {
       const optimisticMessage: Message = {
         _id: tempId,
         conversation: selectedConversation._id,
-        sender: user as any,
+        sender: user!,
         content: messageContent,
-        type: 'text',
+        messageType: 'text',
+        readBy: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as Message;
@@ -388,14 +397,15 @@ export default function TeamChat() {
       
       setAddChannelOpen(false);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating channel:', error);
       
+      const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
       let errorMessage = "Failed to create channel";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (axiosError?.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
+      } else if (axiosError?.message) {
+        errorMessage = axiosError.message;
       }
       
       toast({
@@ -407,7 +417,7 @@ export default function TeamChat() {
     }
   };
 
-  const handleSelectMember = async (member: any) => {
+  const handleSelectMember = async (member: { id: string; name: string }) => {
     try {
       // Check if conversation exists
       const existingConv = conversations.find(conv => 
@@ -442,14 +452,15 @@ export default function TeamChat() {
       
       setSelectMemberOpen(false);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting conversation:', error);
       
+      const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
       let errorMessage = "Failed to start conversation";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (axiosError?.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
+      } else if (axiosError?.message) {
+        errorMessage = axiosError.message;
       }
       
       toast({
@@ -462,7 +473,7 @@ export default function TeamChat() {
   };
 
   const getConversationName = (conv: Conversation) => {
-    const displayName = conv.name || (conv as any).title;
+    const displayName = conv.name || (conv as { title?: string }).title;
     if (displayName) return displayName;
     
     if (conv.type === 'direct') {
