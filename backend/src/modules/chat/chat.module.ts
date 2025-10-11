@@ -10,12 +10,16 @@ import {
   ConversationSchema,
 } from './schemas/conversation.schema';
 import { Message, MessageSchema } from './schemas/message.schema';
+import { User, UserSchema } from '../users/schemas/user.schema';
+import { Project, ProjectSchema } from '../projects/schemas/project.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Conversation.name, schema: ConversationSchema },
       { name: Message.name, schema: MessageSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Project.name, schema: ProjectSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

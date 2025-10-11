@@ -10,6 +10,7 @@ import {
   MinLength,
   MaxLength,
   IsDateString,
+  IsMongoId,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Role } from '../../../common/enums/role.enum';
@@ -153,6 +154,118 @@ export class CreateUserDto {
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {}
 
+// Admin update DTO - excludes email and password
+export class AdminUpdateUserDto {
+  @ApiProperty({
+    example: 'John',
+    description: 'User first name',
+    maxLength: 50,
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'First name must be a string' })
+  @MaxLength(50, { message: 'First name must not exceed 50 characters' })
+  @Transform(({ value }) => value?.trim())
+  firstName?: string;
+
+  @ApiProperty({
+    example: 'Doe',
+    description: 'User last name',
+    maxLength: 50,
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Last name must be a string' })
+  @MaxLength(50, { message: 'Last name must not exceed 50 characters' })
+  @Transform(({ value }) => value?.trim())
+  lastName?: string;
+
+  @ApiProperty({
+    example: '+1234567890',
+    description: 'User phone number',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Phone must be a string' })
+  @Transform(({ value }) => value?.trim())
+  phone?: string;
+
+  @ApiProperty({
+    enum: Role,
+    example: Role.MEMBER,
+    description: 'User role',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(Role, { message: 'Role must be a valid enum value' })
+  role?: Role;
+
+  @ApiProperty({
+    example: 'Engineering',
+    description: 'User department',
+    required: false,
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString({ message: 'Department must be a string' })
+  @MaxLength(100, { message: 'Department must not exceed 100 characters' })
+  @Transform(({ value }) => value?.trim())
+  department?: string;
+
+  @ApiProperty({
+    example: 'New York',
+    description: 'User location',
+    required: false,
+    maxLength: 200,
+  })
+  @IsOptional()
+  @IsString({ message: 'Location must be a string' })
+  @MaxLength(200, { message: 'Location must not exceed 200 characters' })
+  @Transform(({ value }) => value?.trim())
+  location?: string;
+
+  @ApiProperty({
+    enum: UserStatus,
+    example: UserStatus.ACTIVE,
+    description: 'User status',
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(UserStatus, { message: 'Status must be a valid enum value' })
+  status?: UserStatus;
+
+  @ApiProperty({
+    example: 'Experienced software developer',
+    description: 'User bio',
+    required: false,
+    maxLength: 500,
+  })
+  @IsOptional()
+  @IsString({ message: 'Bio must be a string' })
+  @MaxLength(500, { message: 'Bio must not exceed 500 characters' })
+  bio?: string;
+
+  @ApiProperty({
+    example: ['JavaScript', 'React', 'Node.js'],
+    description: 'User skills',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray({ message: 'Skills must be an array' })
+  @IsString({ each: true, message: 'Each skill must be a string' })
+  @Transform(({ value }) => value?.map((skill: string) => skill?.trim()))
+  skills?: string[];
+
+  @ApiProperty({
+    example: 'https://example.com/avatar.jpg',
+    description: 'User avatar URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Avatar must be a string' })
+  avatar?: string;
+}
+
 export class UserResponseDto {
   @ApiProperty({
     example: '507f1f77bcf86cd799439011',
@@ -206,10 +319,10 @@ export class UserResponseDto {
 
   @ApiProperty({
     example: 'Engineering',
-    description: 'User department',
+    description: 'User department (can be string name or populated object)',
     required: false,
   })
-  department?: string;
+  department?: string | { _id: string; name: string };
 
   @ApiProperty({
     example: 'New York',
@@ -325,11 +438,12 @@ export class UserQueryDto {
   role?: Role;
 
   @ApiProperty({
-    description: 'Filter by department',
+    description: 'Filter by department ID',
     required: false,
+    example: '507f1f77bcf86cd799439011',
   })
   @IsOptional()
-  @IsString({ message: 'Department must be a string' })
+  @IsMongoId({ message: 'Department must be a valid MongoDB ObjectId' })
   department?: string;
 
   @ApiProperty({

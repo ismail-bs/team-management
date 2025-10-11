@@ -106,7 +106,11 @@ export function ShareDocumentDialog({
                           <p className="text-xs text-muted-foreground">{user.email}</p>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {user.department || 'No department'}
+                          {typeof user.department === 'object' && user.department?.name 
+                            ? user.department.name 
+                            : typeof user.department === 'string' 
+                            ? user.department 
+                            : 'No department'}
                         </span>
                       </div>
                     </Label>

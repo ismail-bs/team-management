@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,18 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Repeat, Loader2, Clock } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Repeat, Loader2, Clock, Users as UsersIcon, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { apiClient, User } from "@/lib/api";
 
 interface MeetingFormData {
   title: string;
   description: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime: string;
   type: string;
   location: string;
   meetingLink: string;
   agenda: string;
+  participants: string[];
   isRecurring: boolean;
   recurringFrequency?: string;
   recurringEndDate?: string;
@@ -27,7 +32,6 @@ interface AddMeetingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (meetingData: MeetingFormData) => Promise<void>;
-  type: "upcoming" | "past";
 }
 
 // Generate time options (00:00 to 23:30 in 30-minute intervals)
@@ -50,9 +54,11 @@ const generateTimeOptions = () => {
   return times;
 };
 
-export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeetingDialogProps) {
+export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDialogProps) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -70,6 +76,37 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
 
   const timeOptions = generateTimeOptions();
 
+  useEffect(() => {
+    if (open) {
+      loadTeamMembers();
+    }
+  }, [open]);
+
+  const loadTeamMembers = async () => {
+    try {
+      const response = await apiClient.getUsers({ limit: 100 });
+      setTeamMembers(response.data || []);
+    } catch (error) {
+      console.error('Failed to load team members:', error);
+    }
+  };
+
+  const toggleParticipant = (userId: string) => {
+    setSelectedParticipants(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const removeParticipant = (userId: string) => {
+    setSelectedParticipants(prev => prev.filter(id => id !== userId));
+  };
+
+  const getSelectedParticipantDetails = () => {
+    return teamMembers.filter(member => selectedParticipants.includes(member._id));
+  };
+
   const resetForm = () => {
     setFormData({
       title: "",
@@ -85,6 +122,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
       recurringFrequency: "",
       recurringEndDate: ""
     });
+    setSelectedParticipants([]);
     setErrors({});
   };
 
@@ -136,6 +174,11 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
       newErrors.type = "Meeting type is required";
     }
     
+    // Participants validation
+    if (selectedParticipants.length === 0) {
+      newErrors.participants = "At least one participant is required";
+    }
+
     // Meeting link validation - REQUIRED
     if (!formData.meetingLink.trim()) {
       newErrors.meetingLink = "Meeting link is required";
@@ -174,10 +217,10 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
     try {
       setLoading(true);
       
-      // Convert separate start/end times to single time string for parent
+      // Convert separate start/end times and include participants
       const meetingDataWithTime = {
         ...formData,
-        time: `${formData.startTime} - ${formData.endTime}`,
+        participants: selectedParticipants,
       };
       
       // Call parent's onSubmit (this will throw on API error)
@@ -214,7 +257,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
             <Calendar className="h-5 w-5" />
-            Add {type === "upcoming" ? "Upcoming" : "Past"} Meeting
+            Schedule New Meeting
           </DialogTitle>
         </DialogHeader>
 
@@ -375,6 +418,94 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit, type }: AddMeet
                 rows={3}
                 className="resize-none"
               />
+            </div>
+
+            {/* Participants Section */}
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-base">
+                  <UsersIcon className="h-4 w-4" />
+                  Participants *
+                </Label>
+                <Badge variant="secondary">{selectedParticipants.length} selected</Badge>
+              </div>
+
+              {errors.participants && (
+                <p className="text-sm text-destructive">{errors.participants}</p>
+              )}
+
+              {/* Selected Participants Pills */}
+              {selectedParticipants.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
+                  {getSelectedParticipantDetails().map((participant) => (
+                    <Badge
+                      key={participant._id}
+                      variant="default"
+                      className="pl-2 pr-1 py-1 gap-2"
+                    >
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={participant.avatar} alt={participant.firstName} />
+                        <AvatarFallback className="text-xs">
+                          {participant.firstName[0]}{participant.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs">
+                        {participant.firstName} {participant.lastName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeParticipant(participant._id)}
+                        className="ml-1 hover:bg-white/20 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Available Participants List */}
+              <div className="border rounded-lg">
+                <ScrollArea className="h-40">
+                  <div className="p-2 space-y-1">
+                    {teamMembers.length > 0 ? (
+                      teamMembers.map((member) => (
+                        <div
+                          key={member._id}
+                          className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg cursor-pointer transition-colors"
+                          onClick={() => toggleParticipant(member._id)}
+                        >
+                          <Checkbox
+                            checked={selectedParticipants.includes(member._id)}
+                            onCheckedChange={() => toggleParticipant(member._id)}
+                          />
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={member.avatar} alt={member.firstName} />
+                            <AvatarFallback>
+                              {member.firstName[0]}{member.lastName[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {member.firstName} {member.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {member.email}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {member.role}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        No team members available
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
 
             {/* Recurring Meeting Options */}

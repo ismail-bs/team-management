@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Settings } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { DepartmentManagementDialog } from "./DepartmentManagementDialog";
 
 interface InviteMemberData {
   email: string;
@@ -22,6 +24,8 @@ interface InviteMemberDialogProps {
 }
 
 export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMemberDialogProps) {
+  const [departments, setDepartments] = useState<Array<{_id: string; name: string}>>([]);
+  const [deptManagementOpen, setDeptManagementOpen] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -29,6 +33,21 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
     role: "member",
     department: ""
   });
+
+  useEffect(() => {
+    if (open) {
+      loadDepartments();
+    }
+  }, [open]);
+
+  const loadDepartments = async () => {
+    try {
+      const response = await apiClient.getDepartments();
+      setDepartments(response);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +87,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -128,19 +148,35 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="department">Department *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="department">Department *</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setDeptManagementOpen(true)}
+                className="h-7 text-xs"
+              >
+                <Settings className="h-3.5 w-3.5 mr-1" />
+                Manage
+              </Button>
+            </div>
             <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)} required>
               <SelectTrigger>
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Engineering">Engineering</SelectItem>
-                <SelectItem value="Design">Design</SelectItem>
-                <SelectItem value="Product">Product</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
-                <SelectItem value="Sales">Sales</SelectItem>
-                <SelectItem value="HR">Human Resources</SelectItem>
-                <SelectItem value="Finance">Finance</SelectItem>
+                {departments.length > 0 ? (
+                  departments.map((dept) => (
+                    <SelectItem key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No departments available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -156,5 +192,13 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Department Management Dialog */}
+    <DepartmentManagementDialog
+      open={deptManagementOpen}
+      onOpenChange={setDeptManagementOpen}
+      onDepartmentChange={loadDepartments}
+    />
+  </>
   );
 }

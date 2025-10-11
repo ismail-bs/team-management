@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Settings, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api";
 
 interface Member {
   id: string;
@@ -29,6 +30,22 @@ interface EditMemberDialogProps {
 
 export function EditMemberDialog({ open, onOpenChange, member, onUpdate, onDelete }: EditMemberDialogProps) {
   const [formData, setFormData] = useState<Member>(member);
+  const [departments, setDepartments] = useState<Array<{_id: string; name: string}>>([]);
+
+  useEffect(() => {
+    if (open) {
+      loadDepartments();
+    }
+  }, [open]);
+
+  const loadDepartments = async () => {
+    try {
+      const response = await apiClient.getDepartments();
+      setDepartments(response);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,18 +125,23 @@ export function EditMemberDialog({ open, onOpenChange, member, onUpdate, onDelet
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="department">Category</Label>
+            <Label htmlFor="department">Department</Label>
             <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Engineering">Engineering</SelectItem>
-                <SelectItem value="Design">Design</SelectItem>
-                <SelectItem value="Product">Product</SelectItem>
-                <SelectItem value="Marketing">Marketing</SelectItem>
-                <SelectItem value="Sales">Sales</SelectItem>
-                <SelectItem value="HR">Human Resources</SelectItem>
+                {departments.length > 0 ? (
+                  departments.map((dept) => (
+                    <SelectItem key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No departments available
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,11 +18,17 @@ import {
   ParticipantResponseDto,
   MeetingQueryDto,
 } from './dto/meeting.dto';
+import { EmailService } from '../email/email.service';
+import { User } from '../users/schemas/user.schema';
 
 @Injectable()
 export class MeetingsService {
+  private logger: Logger = new Logger('MeetingsService');
+
   constructor(
     @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
+    @InjectModel('User') private userModel: Model<User>,
+    private emailService: EmailService,
   ) {}
 
   async create(
@@ -80,6 +87,53 @@ export class MeetingsService {
       await this.createRecurringInstances(savedMeeting);
     }
 
+    // Send email invitations to all participants (optimized with Promise.all)
+    try {
+      const organizerUser = await this.userModel
+        .findById(organizerId)
+        .select('firstName lastName')
+        .exec();
+
+      const participantUsers = await this.userModel
+        .find({ _id: { $in: createMeetingDto.participants } })
+        .select('firstName lastName email')
+        .exec();
+
+      if (organizerUser && participantUsers.length > 0) {
+        const organizerName = `${organizerUser.firstName} ${organizerUser.lastName}`;
+
+        // Prepare all email promises for parallel execution (better performance)
+        const emailPromises = participantUsers.map((participant) =>
+          this.emailService.sendMeetingInvitationEmail({
+            to: participant.email,
+            firstName: participant.firstName,
+            lastName: participant.lastName,
+            meetingTitle: savedMeeting.title,
+            meetingDescription: savedMeeting.description,
+            meetingType: savedMeeting.type,
+            startTime: savedMeeting.startTime.toISOString(),
+            endTime: savedMeeting.endTime.toISOString(),
+            location: savedMeeting.location,
+            meetingLink: savedMeeting.meetingLink,
+            agenda: savedMeeting.agenda,
+            organizerName: organizerName,
+          }),
+        );
+
+        // Execute all emails in parallel for better performance
+        await Promise.all(emailPromises);
+
+        this.logger.log(
+          `Meeting invitation emails sent for meeting: ${savedMeeting.title} (${emailPromises.length} emails)`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send meeting invitation emails: ${error.message}`,
+      );
+      // Don't fail meeting creation if email sending fails
+    }
+
     return this.findById(savedMeeting._id.toString());
   }
 
@@ -98,6 +152,7 @@ export class MeetingsService {
       status,
       startDate,
       endDate,
+      timeFilter,
       page = 1,
       limit = 10,
     } = query;
@@ -121,18 +176,27 @@ export class MeetingsService {
       filter.status = status;
     }
 
-    if (startDate || endDate) {
-      const timeFilter: Record<string, Date> = {};
+    // Handle time filtering (upcoming vs past)
+    const now = new Date();
+    if (timeFilter === 'upcoming') {
+      filter.startTime = { $gte: now };
+    } else if (timeFilter === 'past') {
+      filter.endTime = { $lt: now };
+    } else if (startDate || endDate) {
+      const dateFilter: Record<string, Date> = {};
       if (startDate) {
-        timeFilter.$gte = new Date(startDate);
+        dateFilter.$gte = new Date(startDate);
       }
       if (endDate) {
-        timeFilter.$lte = new Date(endDate);
+        dateFilter.$lte = new Date(endDate);
       }
-      filter.startTime = timeFilter;
+      filter.startTime = dateFilter;
     }
 
     const skip = (page - 1) * limit;
+
+    // Optimize sort: upcoming (ASC), past (DESC)
+    const sortOrder = timeFilter === 'past' ? -1 : 1;
 
     const [meetings, total] = await Promise.all([
       this.meetingModel
@@ -140,7 +204,7 @@ export class MeetingsService {
         .populate('participants', 'firstName lastName email avatar')
         .populate('organizer', 'firstName lastName email avatar')
         .populate('project', 'name')
-        .sort({ startTime: 1 })
+        .sort({ startTime: sortOrder })
         .skip(skip)
         .limit(limit)
         .exec(),

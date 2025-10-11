@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,6 +18,8 @@ import { Role } from '../../common/enums/role.enum';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
@@ -64,16 +67,28 @@ export class UsersService {
     // Build filter query
     const filter: Record<string, any> = {};
 
+    this.logger.log('📊 User query filters:', {
+      role,
+      department,
+      status,
+      search,
+      page,
+      limit,
+    });
+
     if (role) {
       filter.role = role;
+      this.logger.log('✅ Filtering by role:', role);
     }
 
     if (department) {
-      filter.department = department;
+      filter.department = new Types.ObjectId(department);
+      this.logger.log('✅ Filtering by department:', department);
     }
 
     if (status) {
       filter.status = status;
+      this.logger.log('✅ Filtering by status:', status);
     }
 
     if (search) {
@@ -83,9 +98,10 @@ export class UsersService {
         { firstName: { $regex: escapedSearch, $options: 'i' } },
         { lastName: { $regex: escapedSearch, $options: 'i' } },
         { email: { $regex: escapedSearch, $options: 'i' } },
-        { department: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
+
+    this.logger.log('🔍 Final MongoDB filter:', JSON.stringify(filter));
 
     const [data, total] = await Promise.all([
       this.userModel
@@ -97,9 +113,14 @@ export class UsersService {
         .skip(skip)
         .limit(limit)
         .populate('projects', 'name status')
+        .populate('department', 'name')
         .exec(),
       this.userModel.countDocuments(filter),
     ]);
+
+    this.logger.log(
+      `✅ Found ${total} total users, returning ${data.length} for page ${page}`,
+    );
 
     return {
       data,
@@ -121,6 +142,7 @@ export class UsersService {
         '-password -refreshToken -inviteToken -emailVerificationToken -passwordResetToken',
       )
       .populate('projects', 'title status')
+      .populate('department', 'name')
       .exec();
 
     if (!user) {
@@ -243,5 +265,38 @@ export class UsersService {
       )
       .sort({ firstName: 1, lastName: 1 })
       .exec();
+  }
+
+  async getUserStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      total,
+      admins,
+      projectManagers,
+      members,
+      active,
+      inactive,
+      newThisMonth,
+    ] = await Promise.all([
+      this.userModel.countDocuments(),
+      this.userModel.countDocuments({ role: Role.ADMIN }),
+      this.userModel.countDocuments({ role: Role.PROJECT_MANAGER }),
+      this.userModel.countDocuments({ role: Role.MEMBER }),
+      this.userModel.countDocuments({ status: 'active' }),
+      this.userModel.countDocuments({ status: 'inactive' }),
+      this.userModel.countDocuments({ createdAt: { $gte: startOfMonth } }),
+    ]);
+
+    return {
+      total,
+      admins,
+      projectManagers,
+      members,
+      active,
+      inactive,
+      newThisMonth,
+    };
   }
 }

@@ -16,7 +16,9 @@ import Meetings from "./pages/Meetings";
 import TeamChat from "./pages/TeamChat";
 import DocumentHub from "./pages/DocumentHub";
 import TeamMembers from "./pages/TeamMembers";
+import UserManagement from "./pages/UserManagement";
 import AccountSettings from "./pages/AccountSettings";
+import Departments from "./pages/Departments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -52,7 +54,10 @@ const AppContent = () => {
           <Route path="/meetings" element={<ProtectedRoute><Meetings /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><TeamChat /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><DocumentHub /></ProtectedRoute>} />
+          <Route path="/document-hub" element={<ProtectedRoute><DocumentHub /></ProtectedRoute>} />
           <Route path="/team" element={<ProtectedRoute><TeamMembers /></ProtectedRoute>} />
+          <Route path="/departments" element={<ProtectedRoute><Departments /></ProtectedRoute>} />
+          <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

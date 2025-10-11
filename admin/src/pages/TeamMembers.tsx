@@ -16,6 +16,7 @@ export default function TeamMembers() {
   const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Array<{_id: string; name: string; employeeCount: number}>>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [inviteMemberOpen, setInviteMemberOpen] = useState(false);
@@ -47,7 +48,13 @@ export default function TeamMembers() {
   }, []);
 
   // Handle invite member
-  const handleInviteMember = async (memberData: any) => {
+  const handleInviteMember = async (memberData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    department?: string;
+  }) => {
     try {
       await apiClient.inviteUser(memberData);
       
@@ -59,15 +66,18 @@ export default function TeamMembers() {
       setInviteMemberOpen(false);
       await loadUsers(); // Refresh data
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to invite member:', error);
       
       // Extract actual error message from backend
       let errorMessage = "Failed to send invitation";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -78,16 +88,19 @@ export default function TeamMembers() {
     }
   };
 
-  // Calculate departments
-  const departments = [
-    { name: "Engineering", count: users.filter(u => u.department === "Engineering").length },
-    { name: "Design", count: users.filter(u => u.department === "Design").length },
-    { name: "Product", count: users.filter(u => u.department === "Product").length },
-    { name: "Marketing", count: users.filter(u => u.department === "Marketing").length },
-    { name: "Sales", count: users.filter(u => u.department === "Sales").length },
-    { name: "HR", count: users.filter(u => u.department === "HR").length },
-    { name: "Finance", count: users.filter(u => u.department === "Finance").length },
-  ].filter(dept => dept.count > 0);
+  // Load departments
+  useEffect(() => {
+    loadDepartments();
+  }, []);
+
+  const loadDepartments = async () => {
+    try {
+      const response = await apiClient.getDepartments();
+      setDepartments(response);
+    } catch (error) {
+      console.error('Error loading departments:', error);
+    }
+  };
 
   // Filter members
   const filteredMembers = users.filter(user => {
@@ -96,9 +109,14 @@ export default function TeamMembers() {
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.role.toLowerCase().includes(searchTerm.toLowerCase());
     
+    // Handle both populated object and ID string
+    const userDeptId = typeof user.department === 'object' 
+      ? user.department?._id 
+      : user.department;
+    
     const matchesDepartment = 
       selectedDepartment === 'all' || 
-      user.department === selectedDepartment;
+      userDeptId === selectedDepartment;
     
     return matchesSearch && matchesDepartment;
   });
@@ -142,16 +160,16 @@ export default function TeamMembers() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
           {departments.map((dept) => (
             <Card 
-              key={dept.name} 
+              key={dept._id} 
               className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
-              onClick={() => setSelectedDepartment(selectedDepartment === dept.name ? 'all' : dept.name)}
+              onClick={() => setSelectedDepartment(selectedDepartment === dept._id ? 'all' : dept._id)}
             >
               <CardContent className="p-4 text-center">
                 <Briefcase className={`h-6 w-6 mx-auto mb-2 ${
-                  selectedDepartment === dept.name ? 'text-blue-600' : 'text-muted-foreground'
+                  selectedDepartment === dept._id ? 'text-blue-600' : 'text-muted-foreground'
                 }`} />
                 <p className="text-xs font-medium truncate">{dept.name}</p>
-                <p className="text-lg font-bold">{dept.count}</p>
+                <p className="text-lg font-bold">{dept.employeeCount}</p>
               </CardContent>
             </Card>
           ))}
@@ -177,8 +195,8 @@ export default function TeamMembers() {
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
                   {departments.map(dept => (
-                    <SelectItem key={dept.name} value={dept.name}>
-                      {dept.name} ({dept.count})
+                    <SelectItem key={dept._id} value={dept._id}>
+                      {dept.name} ({dept.employeeCount})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -212,7 +230,7 @@ export default function TeamMembers() {
                     <p className="text-sm text-muted-foreground">{member.role.replace('_', ' ')}</p>
                     {member.department && (
                       <Badge variant="secondary" className="text-xs mt-2">
-                        {member.department}
+                        {typeof member.department === 'object' ? member.department.name : member.department}
                       </Badge>
                     )}
                   </CardHeader>
@@ -246,11 +264,12 @@ export default function TeamMembers() {
                       </p>
                     )}
 
-                    <div className="flex justify-between items-center pt-3 border-t">
-                      <div className="text-center">
+                    <div className="flex justify-end items-center pt-3 border-t">
+                      {/* TODO: Temporarily hidden - Tasks Done section */}
+                      {/* <div className="text-center">
                         <div className="text-lg font-semibold">{member.tasksCompleted || 0}</div>
                         <div className="text-xs text-muted-foreground">Tasks Done</div>
-                      </div>
+                      </div> */}
                       <Badge variant={member.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                         {member.status}
                       </Badge>

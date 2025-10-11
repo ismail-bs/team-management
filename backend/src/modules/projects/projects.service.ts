@@ -27,6 +27,9 @@ import { IProjectService } from './interfaces/project-service.interface';
 import { PopulatedUser, getUserData } from './types/populated-project.types';
 import { ChatService } from '../chat/chat.service';
 import { ConversationType } from '../chat/schemas/conversation.schema';
+import { EmailService } from '../email/email.service';
+import { InjectModel as InjectUserModel } from '@nestjs/mongoose';
+import { User } from '../users/schemas/user.schema';
 
 /**
  * Service handling all project-related business logic
@@ -38,8 +41,10 @@ export class ProjectsService implements IProjectService {
 
   constructor(
     @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
+    @InjectModel('User') private userModel: Model<User>,
     @Inject(forwardRef(() => ChatService))
     private chatService: ChatService,
+    private emailService: EmailService,
   ) {}
 
   /**
@@ -98,6 +103,73 @@ export class ProjectsService implements IProjectService {
         `Failed to create project conversation: ${error.message}`,
       );
       // Don't fail project creation if chat creation fails
+    }
+
+    // Send email notifications to project manager and team members
+    try {
+      // Fetch user details for emails
+      const projectManagerUser = await this.userModel
+        .findById(createProjectDto.projectManager)
+        .select('firstName lastName email')
+        .exec();
+
+      const teamMemberUsers = createProjectDto.teamMembers?.length
+        ? await this.userModel
+            .find({ _id: { $in: createProjectDto.teamMembers } })
+            .select('firstName lastName email')
+            .exec()
+        : [];
+
+      if (projectManagerUser) {
+        const projectManagerName = `${projectManagerUser.firstName} ${projectManagerUser.lastName}`;
+
+        // Prepare all email promises for parallel execution (better performance)
+        const emailPromises: Promise<void>[] = [];
+
+        // Send email to project manager
+        emailPromises.push(
+          this.emailService.sendProjectAssignmentEmail({
+            to: projectManagerUser.email,
+            firstName: projectManagerUser.firstName,
+            lastName: projectManagerUser.lastName,
+            projectName: savedProject.name,
+            projectDescription: savedProject.description,
+            projectManagerName: projectManagerName,
+            role: 'project_manager',
+            dueDate: savedProject.endDate?.toISOString(),
+            priority: savedProject.priority,
+          }),
+        );
+
+        // Send emails to all team members in parallel
+        teamMemberUsers.forEach((member) => {
+          emailPromises.push(
+            this.emailService.sendProjectAssignmentEmail({
+              to: member.email,
+              firstName: member.firstName,
+              lastName: member.lastName,
+              projectName: savedProject.name,
+              projectDescription: savedProject.description,
+              projectManagerName: projectManagerName,
+              role: 'member',
+              dueDate: savedProject.endDate?.toISOString(),
+              priority: savedProject.priority,
+            }),
+          );
+        });
+
+        // Execute all emails in parallel for better performance
+        await Promise.all(emailPromises);
+
+        this.logger.log(
+          `Project assignment emails sent for project: ${savedProject.name} (${emailPromises.length} emails)`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send project assignment emails: ${error.message}`,
+      );
+      // Don't fail project creation if email sending fails
     }
 
     return savedProject;
@@ -270,21 +342,75 @@ export class ProjectsService implements IProjectService {
       updateData.deadline = new Date(updateProjectDto.deadline);
     }
 
-    // If status is being changed to completed, set completedAt
-    if (
-      updateProjectDto.status === ProjectStatus.COMPLETED &&
-      project.status !== ProjectStatus.COMPLETED
-    ) {
-      updateData.completedAt = new Date();
-      updateData.progress = 100;
+    // === PROGRESS VALIDATION ===
+    if (updateProjectDto.progress !== undefined) {
+      const currentProgress = project.progress || 0;
+      const newProgress = updateProjectDto.progress;
+
+      // Cannot decrease progress
+      if (newProgress < currentProgress) {
+        throw new BadRequestException(
+          `Progress cannot be decreased from ${currentProgress}% to ${newProgress}%. Progress can only increase.`,
+        );
+      }
+
+      // Determine the effective status (use new status if being updated, otherwise current status)
+      const effectiveStatus = updateProjectDto.status || project.status;
+
+      // Can only update progress if status is IN_PROGRESS or COMPLETED
+      if (
+        effectiveStatus !== ProjectStatus.IN_PROGRESS &&
+        effectiveStatus !== ProjectStatus.COMPLETED
+      ) {
+        throw new BadRequestException(
+          `Cannot update progress when project status is "${effectiveStatus}". Please change status to "in-progress" first.`,
+        );
+      }
+
+      // If setting to 100%, must be completed status
+      if (newProgress === 100 && effectiveStatus !== ProjectStatus.COMPLETED) {
+        throw new BadRequestException(
+          'Setting progress to 100% requires changing status to "completed"',
+        );
+      }
     }
 
-    // If status is being changed to cancelled, mark as inactive
-    if (
-      updateProjectDto.status === ProjectStatus.CANCELLED &&
-      project.status !== ProjectStatus.CANCELLED
-    ) {
-      updateData.isActive = false;
+    // === STATUS VALIDATION ===
+    if (updateProjectDto.status) {
+      const currentStatus = project.status;
+      const newStatus = updateProjectDto.status;
+
+      // Cannot revert from completed status
+      if (
+        currentStatus === ProjectStatus.COMPLETED &&
+        newStatus !== ProjectStatus.COMPLETED
+      ) {
+        throw new BadRequestException(
+          'Cannot revert status from "completed". Completed projects are final.',
+        );
+      }
+
+      // Auto-set progress to 100% when completing
+      if (
+        newStatus === ProjectStatus.COMPLETED &&
+        currentStatus !== ProjectStatus.COMPLETED
+      ) {
+        updateData.completedAt = new Date();
+        updateData.progress = 100;
+      }
+
+      // Mark as inactive when cancelled
+      if (
+        newStatus === ProjectStatus.CANCELLED &&
+        currentStatus !== ProjectStatus.CANCELLED
+      ) {
+        updateData.isActive = false;
+      }
+
+      // Auto-set progress to 0 when status is not-started
+      if (newStatus === ProjectStatus.NOT_STARTED) {
+        updateData.progress = 0;
+      }
     }
 
     const updatedProject = await this.projectModel

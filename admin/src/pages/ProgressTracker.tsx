@@ -42,14 +42,17 @@ export default function ProgressTracker() {
       setLoading(true);
       const response = await apiClient.getProjects({ limit: 100 });
       setProjects(response.data || []);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error loading projects:', error);
       
       let errorMessage = "Failed to load projects";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -68,7 +71,16 @@ export default function ProgressTracker() {
   }, []);
 
   // Handle new project
-  const handleNewProject = async (projectData: any) => {
+  const handleNewProject = async (projectData: {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    projectManager: string;
+    teamMembers: string[];
+    budget: string;
+    dueDate?: Date;
+  }) => {
     try {
       await apiClient.createProject({
         name: projectData.title,
@@ -76,6 +88,7 @@ export default function ProgressTracker() {
         priority: projectData.priority,
         status: projectData.status,
         projectManager: projectData.projectManager,
+        teamMembers: projectData.teamMembers || [],
         startDate: new Date().toISOString(),
         endDate: projectData.dueDate?.toISOString(),
         budget: projectData.budget ? parseFloat(projectData.budget) : undefined,
@@ -83,22 +96,25 @@ export default function ProgressTracker() {
       
       toast({
         title: "Success",
-        description: "Project created successfully",
+        description: "Project created successfully! Team members will receive email notifications.",
       });
       
       setNewProjectOpen(false);
       await loadData(); // Refresh data
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating project:', error);
       
       let errorMessage = "Failed to create project";
-      if (error?.response?.data?.message) {
-        errorMessage = Array.isArray(error.response.data.message) 
-          ? error.response.data.message.join(', ')
-          : error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string | string[] } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = Array.isArray(axiosError.response.data.message) 
+            ? axiosError.response.data.message.join(', ')
+            : axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -110,7 +126,13 @@ export default function ProgressTracker() {
   };
 
   // Handle invite member
-  const handleInviteMember = async (memberData: any) => {
+  const handleInviteMember = async (memberData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    department?: string;
+  }) => {
     try {
       await apiClient.inviteUser(memberData);
       
@@ -121,14 +143,17 @@ export default function ProgressTracker() {
       
       setInviteMemberOpen(false);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error inviting member:', error);
       
       let errorMessage = "Failed to send invitation";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -185,15 +210,15 @@ export default function ProgressTracker() {
               Track project status, tasks, and deadlines
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              onClick={() => setNewProjectOpen(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Project
-            </Button>
-            {isAdmin && (
+          {isAdmin && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button 
+                onClick={() => setNewProjectOpen(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setInviteMemberOpen(true)}
@@ -201,38 +226,73 @@ export default function ProgressTracker() {
                 <UserPlus className="h-4 w-4 mr-2" />
                 Invite Member
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards with Enhanced Design */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <Card className="border-green-200 bg-green-50/50 dark:bg-green-950/20">
-            <CardContent className="p-4 md:p-6 text-center">
-              <CheckCircle2 className="h-8 w-8 md:h-10 md:w-10 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl md:text-3xl font-bold text-green-600">{stats.completed}</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-1">Completed</div>
+          <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2.5 md:p-3 rounded-xl bg-green-100 dark:bg-green-900/50">
+                  <CheckCircle2 className="h-5 w-5 md:h-6 md:w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Completed</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">
+                  {stats.completed}
+                </p>
+              </div>
             </CardContent>
           </Card>
-          <Card className="border-blue-200 bg-blue-50/50 dark:bg-blue-950/20">
-            <CardContent className="p-4 md:p-6 text-center">
-              <TrendingUp className="h-8 w-8 md:h-10 md:w-10 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl md:text-3xl font-bold text-blue-600">{stats.active}</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-1">Active</div>
+
+          <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2.5 md:p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50">
+                  <TrendingUp className="h-5 w-5 md:h-6 md:w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Active</p>
+                <p className="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {stats.active}
+                </p>
+              </div>
             </CardContent>
           </Card>
-          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/20">
-            <CardContent className="p-4 md:p-6 text-center">
-              <Clock className="h-8 w-8 md:h-10 md:w-10 text-orange-600 mx-auto mb-2" />
-              <div className="text-2xl md:text-3xl font-bold text-orange-600">{stats.planning}</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-1">Planning</div>
+
+          <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2.5 md:p-3 rounded-xl bg-orange-100 dark:bg-orange-900/50">
+                  <Clock className="h-5 w-5 md:h-6 md:w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Planning</p>
+                <p className="text-2xl md:text-3xl font-bold text-orange-600 dark:text-orange-400">
+                  {stats.planning}
+                </p>
+              </div>
             </CardContent>
           </Card>
-          <Card className="border-gray-200 bg-gray-50/50 dark:bg-gray-950/20">
-            <CardContent className="p-4 md:p-6 text-center">
-              <Pause className="h-8 w-8 md:h-10 md:w-10 text-gray-600 mx-auto mb-2" />
-              <div className="text-2xl md:text-3xl font-bold text-gray-600">{stats.paused}</div>
-              <div className="text-xs md:text-sm text-muted-foreground mt-1">Paused</div>
+
+          <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2.5 md:p-3 rounded-xl bg-gray-100 dark:bg-gray-800/50">
+                  <Pause className="h-5 w-5 md:h-6 md:w-6 text-gray-600 dark:text-gray-400" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Paused</p>
+                <p className="text-2xl md:text-3xl font-bold text-gray-600 dark:text-gray-400">
+                  {stats.paused}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -292,7 +352,7 @@ export default function ProgressTracker() {
                 <ProjectCard
                   title={project.name}
                   description={project.description || ''}
-                  progress={Math.round((project.completedTaskCount / Math.max(project.taskCount, 1)) * 100)}
+                  progress={project.progress || 0}
                   status={
                     project.status === 'in-progress' ? 'active' :
                     project.status === 'completed' ? 'completed' :

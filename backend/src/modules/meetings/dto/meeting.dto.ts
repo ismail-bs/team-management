@@ -178,6 +178,12 @@ export class UpdateMeetingDto extends PartialType(CreateMeetingDto) {
   @MaxLength(5000, { message: 'Notes must not exceed 5000 characters' })
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Meeting summary' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(3000, { message: 'Summary must not exceed 3000 characters' })
+  summary?: string;
+
   @ApiPropertyOptional({ description: 'Meeting decisions' })
   @IsArray()
   @IsString({ each: true })
@@ -270,6 +276,15 @@ export class MeetingQueryDto {
   @IsOptional()
   endDate?: string;
 
+  @ApiPropertyOptional({
+    description: 'Filter by time: upcoming or past',
+    enum: ['upcoming', 'past'],
+  })
+  @IsString()
+  @IsOptional()
+  @IsEnum(['upcoming', 'past'])
+  timeFilter?: 'upcoming' | 'past';
+
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @Transform(({ value }) => parseInt(value))
   @IsOptional()
@@ -333,6 +348,9 @@ export class MeetingResponseDto {
 
   @ApiProperty({ description: 'Meeting notes', required: false })
   notes?: string;
+
+  @ApiProperty({ description: 'Meeting summary', required: false })
+  summary?: string;
 
   @ApiProperty({ description: 'Meeting decisions', type: [String] })
   decisions: string[];

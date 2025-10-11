@@ -28,8 +28,11 @@ import {
   ShareDocumentDto,
   DocumentStatsDto,
 } from './dto/document.dto';
+import { EmailService } from '../email/email.service';
+import { User } from '../users/schemas/user.schema';
 import * as crypto from 'crypto';
 import * as path from 'path';
+import { Role } from 'src/common/enums/role.enum';
 
 @Injectable()
 export class DocumentsService {
@@ -39,7 +42,10 @@ export class DocumentsService {
   constructor(
     @InjectModel(DocumentModel.name)
     private documentModel: Model<DocumentDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<User>,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {
     // Check if AWS credentials are configured
     const accessKeyId = this.configService.get<string>('aws.accessKeyId');
@@ -204,12 +210,21 @@ export class DocumentsService {
     // Build filter
     const filter: Record<string, unknown> = { status };
 
-    // Access control: user can see their own documents, shared documents, and public documents
-    filter.$or = [
-      { uploadedBy: new Types.ObjectId(userId) },
-      { sharedWith: new Types.ObjectId(userId) },
-      { visibility: DocumentVisibility.PUBLIC },
-    ];
+    // Get user to check if admin
+    const user = await this.userModel.findById(userId).exec();
+    const isAdmin = user?.role === Role.ADMIN;
+
+    // Access control:
+    // - Admins can see ALL documents
+    // - Regular users can see: their own documents, shared documents, and public documents
+    if (!isAdmin) {
+      filter.$or = [
+        { uploadedBy: new Types.ObjectId(userId) },
+        { sharedWith: new Types.ObjectId(userId) },
+        { visibility: DocumentVisibility.PUBLIC },
+      ];
+    }
+    // If admin, no filter needed - they see everything
 
     if (search) {
       filter.$text = { $search: search };
@@ -351,22 +366,47 @@ export class DocumentsService {
     updateDocumentDto: UpdateDocumentDto,
     userId: string,
   ): Promise<DocumentDocument> {
-    const document = await this.findOne(id, userId);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid document ID');
+    }
+
+    // First, get the document to check permissions (without toObject)
+    const document = await this.documentModel
+      .findById(id)
+      .populate('uploadedBy', 'firstName lastName email avatar')
+      .exec();
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
 
     // Only the uploader can update the document
     if (document.uploadedBy._id.toString() !== userId) {
       throw new ForbiddenException('Only the document uploader can update it');
     }
 
-    Object.assign(document, updateDocumentDto);
+    // Prepare update data
+    const updateData: any = { ...updateDocumentDto };
 
     if (updateDocumentDto.sharedWith) {
-      document.sharedWith = updateDocumentDto.sharedWith.map(
+      updateData.sharedWith = updateDocumentDto.sharedWith.map(
         (id) => new Types.ObjectId(id),
       );
     }
 
-    return await document.save();
+    // Update the document
+    const updatedDocument = await this.documentModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .populate('uploadedBy', 'firstName lastName email avatar')
+      .populate('project', 'name')
+      .populate('sharedWith', 'firstName lastName email avatar')
+      .exec();
+
+    if (!updatedDocument) {
+      throw new NotFoundException('Document not found after update');
+    }
+
+    return updatedDocument;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -449,11 +489,37 @@ export class DocumentsService {
     shareDocumentDto: ShareDocumentDto,
     userId: string,
   ): Promise<DocumentDocument> {
-    const document = await this.findOne(id, userId);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid document ID');
+    }
 
-    // Only the uploader can share the document
-    if (document.uploadedBy._id.toString() !== userId) {
-      throw new ForbiddenException('Only the document uploader can share it');
+    // Get document (not using findOne to avoid toObject)
+    const document = await this.documentModel
+      .findById(id)
+      .populate('uploadedBy', 'firstName lastName email')
+      .exec();
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Check if user has access to the document
+    const isUploader = document.uploadedBy._id.toString() === userId;
+    const isPublic = document.visibility === DocumentVisibility.PUBLIC;
+    const isSharedWithUser = document.sharedWith.some(
+      (sharedUserId) => sharedUserId.toString() === userId,
+    );
+    const hasAccess = isUploader || isPublic || isSharedWithUser;
+
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have access to this document');
+    }
+
+    // Check sharing permissions: uploader can always share, or anyone can share public documents
+    if (!isUploader && !isPublic) {
+      throw new ForbiddenException(
+        'Only the document uploader can share private documents. Public documents can be shared by anyone.',
+      );
     }
 
     // Add new users to sharedWith array (avoid duplicates)
@@ -462,11 +528,66 @@ export class DocumentsService {
       (id) => !existingSharedIds.includes(id),
     );
 
-    document.sharedWith.push(
-      ...newSharedIds.map((id) => new Types.ObjectId(id)),
-    );
+    if (newSharedIds.length > 0) {
+      document.sharedWith.push(
+        ...newSharedIds.map((id) => new Types.ObjectId(id)),
+      );
 
-    return await document.save();
+      await document.save();
+
+      // Get user details for the sharer
+      const sharer = await this.userModel.findById(userId).exec();
+      const sharerName = sharer
+        ? `${sharer.firstName} ${sharer.lastName}`
+        : 'A team member';
+
+      // Generate document URL
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'http://localhost:5173';
+      const documentUrl = `${frontendUrl}/document-hub`;
+
+      // Send email to each new recipient
+      const emailPromises = newSharedIds.map(async (targetUserId) => {
+        try {
+          const recipient = await this.userModel.findById(targetUserId).exec();
+
+          if (recipient && recipient.email) {
+            await this.emailService.sendDocumentShareEmail({
+              to: recipient.email,
+              firstName: recipient.firstName,
+              lastName: recipient.lastName,
+              documentName: document.name,
+              documentDescription: document.description,
+              sharedByName: sharerName,
+              documentUrl,
+            });
+          }
+        } catch (error) {
+          // Log error but don't fail the share operation
+          console.error(`Failed to send email to user ${targetUserId}:`, error);
+        }
+      });
+
+      // Send all emails concurrently (don't wait for them to complete)
+      Promise.all(emailPromises).catch((err) => {
+        console.error('Some emails failed to send:', err);
+      });
+    }
+
+    // Return populated document
+    const updatedDocument = await this.documentModel
+      .findById(id)
+      .populate('uploadedBy', 'firstName lastName email avatar')
+      .populate('project', 'name')
+      .populate('sharedWith', 'firstName lastName email avatar')
+      .exec();
+
+    if (!updatedDocument) {
+      throw new NotFoundException('Document not found after update');
+    }
+
+    return updatedDocument;
   }
 
   async unshareDocument(
@@ -524,6 +645,18 @@ export class DocumentsService {
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
 
+    // Get user to check if admin
+    const user = await this.userModel.findById(userId).exec();
+    const isAdmin = user?.role === Role.ADMIN;
+
+    // Build match filter based on role
+    const matchFilter: any = { status: 'active' };
+    if (!isAdmin) {
+      // Regular users only see their own documents
+      matchFilter.uploadedBy = new Types.ObjectId(userId);
+    }
+    // Admins see all documents (no uploadedBy filter)
+
     const [
       totalDocuments,
       totalStorageResult,
@@ -531,31 +664,21 @@ export class DocumentsService {
       documentsThisMonth,
       documentsByTypeResult,
     ] = await Promise.all([
-      this.documentModel.countDocuments({
-        uploadedBy: new Types.ObjectId(userId),
-        status: 'active',
-      }),
+      this.documentModel.countDocuments(matchFilter),
       this.documentModel.aggregate([
-        {
-          $match: { uploadedBy: new Types.ObjectId(userId), status: 'active' },
-        },
+        { $match: matchFilter },
         { $group: { _id: null, totalSize: { $sum: '$size' } } },
       ]),
       this.documentModel.aggregate([
-        {
-          $match: { uploadedBy: new Types.ObjectId(userId), status: 'active' },
-        },
+        { $match: matchFilter },
         { $group: { _id: null, totalDownloads: { $sum: '$downloadCount' } } },
       ]),
       this.documentModel.countDocuments({
-        uploadedBy: new Types.ObjectId(userId),
-        status: 'active',
+        ...matchFilter,
         createdAt: { $gte: currentMonth },
       }),
       this.documentModel.aggregate([
-        {
-          $match: { uploadedBy: new Types.ObjectId(userId), status: 'active' },
-        },
+        { $match: matchFilter },
         { $group: { _id: '$mimeType', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
@@ -617,15 +740,27 @@ export class DocumentsService {
     userId: string,
     limit: number = 10,
   ): Promise<Array<{ document: DocumentDocument; downloads: number }>> {
+    // Get user to check if admin
+    const user = await this.userModel.findById(userId).exec();
+    const isAdmin = user?.role === Role.ADMIN;
+
+    // Build filter based on role
+    const filter: any = {
+      status: 'active',
+      downloadCount: { $gt: 0 }, // Only documents with downloads
+    };
+
+    if (!isAdmin) {
+      // Regular users only see their own documents and shared documents
+      filter.$or = [
+        { uploadedBy: new Types.ObjectId(userId) },
+        { sharedWith: new Types.ObjectId(userId) },
+      ];
+    }
+    // Admins see all documents
+
     const results = await this.documentModel
-      .find({
-        $or: [
-          { uploadedBy: new Types.ObjectId(userId) },
-          { sharedWith: new Types.ObjectId(userId) },
-        ],
-        status: 'active',
-        downloadCount: { $gt: 0 }, // Only documents with downloads
-      })
+      .find(filter)
       .populate('uploadedBy', 'firstName lastName email avatar')
       .populate('project', 'name')
       .sort({ downloadCount: -1, lastDownloadedAt: -1 })

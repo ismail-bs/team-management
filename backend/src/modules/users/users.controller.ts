@@ -20,7 +20,14 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserResponseDto,
+  AdminUpdateUserDto,
+  UserQueryDto,
+  UserStatsResponseDto,
+} from './dto/user.dto';
 import { UserDocument } from './schemas/user.schema.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -82,6 +89,18 @@ export class UsersController {
     description: 'Filter by role',
   })
   @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter by status (active, inactive, pending)',
+  })
+  @ApiQuery({
+    name: 'department',
+    required: false,
+    type: String,
+    description: 'Filter by department ID',
+  })
+  @ApiQuery({
     name: 'sortBy',
     required: false,
     type: String,
@@ -99,6 +118,8 @@ export class UsersController {
     @Query('limit') limit: string = '10',
     @Query('search') search?: string,
     @Query('role') role?: Role,
+    @Query('status') status?: string,
+    @Query('department') department?: string,
     @Query('sortBy') sortBy: string = 'createdAt',
     @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<PaginationResult<UserResponseDto>> {
@@ -107,6 +128,8 @@ export class UsersController {
       limit: parseInt(limit),
       search,
       role,
+      status,
+      department,
       sortBy,
       sortOrder,
     });
@@ -177,7 +200,9 @@ export class UsersController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Update user by ID (Admin only)' })
+  @ApiOperation({
+    summary: 'Update user by ID (Admin only - excludes email and password)',
+  })
   @ApiResponse({
     status: 200,
     description: 'User updated successfully',
@@ -190,10 +215,23 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async update(
     @Param('id') id: string,
-    @Body() updateUserDto: UpdateUserDto,
+    @Body() updateUserDto: AdminUpdateUserDto,
   ): Promise<UserResponseDto> {
     const user = await this.usersService.update(id, updateUserDto);
     return this.transformToResponse(user);
+  }
+
+  @Get('stats/overview')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get user statistics (Admin only)' })
+  @ApiResponse({
+    status: 200,
+    description: 'User statistics retrieved successfully',
+    type: UserStatsResponseDto,
+  })
+  async getStats(): Promise<UserStatsResponseDto> {
+    return this.usersService.getUserStats();
   }
 
   @Delete(':id')
@@ -222,7 +260,7 @@ export class UsersController {
       initials: `${user.firstName[0]}${user.lastName[0]}`.toUpperCase(),
       phone: user.phone,
       role: user.role,
-      department: user.department,
+      department: user.department as any,
       location: user.location,
       status: user.status,
       joinDate: user.joinDate,

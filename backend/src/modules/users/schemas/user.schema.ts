@@ -34,8 +34,8 @@ export class User {
   @Prop({ enum: Object.values(Role), default: Role.MEMBER })
   role: Role;
 
-  @Prop({ trim: true, maxlength: 100 })
-  department?: string;
+  @Prop({ type: Types.ObjectId, ref: 'Department' })
+  department?: Types.ObjectId;
 
   @Prop({ trim: true, maxlength: 200 })
   location?: string;

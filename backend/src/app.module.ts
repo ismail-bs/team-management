@@ -12,6 +12,8 @@ import { TasksModule } from './modules/tasks/tasks.module';
 import { MeetingsModule } from './modules/meetings/meetings.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { DepartmentsModule } from './modules/departments/departments.module';
+import { RbacModule } from './common/rbac/rbac.module';
 import appConfig from './config/app.config';
 import jwtConfig from './config/jwt.config';
 import awsConfig from './config/aws.config';
@@ -79,6 +81,7 @@ import databaseConfig from './config/database.config';
         limit: 1000, // 1000 requests per hour
       },
     ]),
+    RbacModule,
     AuthModule,
     UsersModule,
     ProjectsModule,
@@ -86,6 +89,7 @@ import databaseConfig from './config/database.config';
     MeetingsModule,
     DocumentsModule,
     ChatModule,
+    DepartmentsModule,
   ],
   controllers: [AppController],
   providers: [

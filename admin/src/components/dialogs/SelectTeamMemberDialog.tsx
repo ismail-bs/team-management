@@ -28,6 +28,7 @@ interface SelectTeamMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (member: TeamMember) => void;
+  excludeUserIds?: string[];
 }
 
 const getStatusColor = (status: string) => {
@@ -46,7 +47,8 @@ const getStatusColor = (status: string) => {
 export function SelectTeamMemberDialog({ 
   open, 
   onOpenChange, 
-  onSelect 
+  onSelect,
+  excludeUserIds = []
 }: SelectTeamMemberDialogProps) {
   const { user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,9 +90,10 @@ export function SelectTeamMemberDialog({
   };
 
   const filteredMembers = teamMembers.filter(member =>
-    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    !excludeUserIds.includes(member.id) && // Exclude specified users
+    (member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    member.department.toLowerCase().includes(searchQuery.toLowerCase())
+    member.department.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSelectMember = (member: TeamMember) => {

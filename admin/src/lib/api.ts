@@ -28,7 +28,7 @@ export interface User {
   lastName: string;
   phone?: string;
   role: string;
-  department?: string;
+  department?: string | { _id: string; name: string };
   location?: string;
   status: string;
   avatar?: string;
@@ -115,6 +115,7 @@ export interface Meeting {
   project?: Project;
   agenda?: string;
   notes?: string;
+  summary?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -142,6 +143,7 @@ export interface Document {
 
 export interface Conversation {
   _id: string;
+  description?: string;
   name?: string;
   type: 'direct' | 'group' | 'project';
   participants: User[];
@@ -377,7 +379,10 @@ class ApiClient {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<PaginatedResponse<User>> {
+    console.log('📡 API Client: getUsers called with params:', params);
     const response = await this.client.get('/users', { params });
+    console.log('📡 API Client: Request URL:', response.config.url);
+    console.log('📡 API Client: Request params:', response.config.params);
     return response.data;
   }
 
@@ -596,6 +601,7 @@ class ApiClient {
     project?: string;
     startDate?: string;
     endDate?: string;
+    timeFilter?: 'upcoming' | 'past';
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<PaginatedResponse<Meeting>> {
@@ -729,20 +735,19 @@ class ApiClient {
   }
 
   async createConversation(conversationData: {
-    name?: string;
+    title?: string;
     type: 'direct' | 'group' | 'project';
     participants: string[];
     project?: string;
   }): Promise<Conversation> {
-    // Backend expects 'title' not 'name'
     const payload: Record<string, unknown> = {
       type: conversationData.type,
       participants: conversationData.participants,
     };
     
-    // Map 'name' to 'title' for backend
-    if (conversationData.name) {
-      payload.title = conversationData.name;
+    // Use title directly
+    if (conversationData.title) {
+      payload.title = conversationData.title;
     }
     
     if (conversationData.project) {
@@ -864,8 +869,77 @@ class ApiClient {
     const response = await this.client.get(`/meetings/project/${projectId}`);
     return response.data;
   }
+// Create and export a singleton instance
+  async getDepartments(): Promise<Array<{
+    _id: string;
+    name: string;
+    description?: string;
+    head?: { _id: string; firstName: string; lastName: string };
+    employeeCount: number;
+    isActive: boolean;
+  }>> {
+    // Add timestamp to prevent caching (no custom headers needed)
+    const response = await this.client.get('/departments', {
+      params: { _t: Date.now() }
+    });
+    return response.data;
+  }
+
+  async getDepartmentById(id: string) {
+    const response = await this.client.get(`/departments/${id}`);
+    return response.data;
+  }
+
+  async createDepartment(departmentData: {
+    name: string;
+    description?: string;
+    head?: string;
+  }) {
+    const response = await this.client.post('/departments', departmentData);
+    return response.data;
+  }
+
+  async updateDepartment(id: string, departmentData: {
+    name?: string;
+    description?: string;
+    head?: string;
+    isActive?: boolean;
+  }) {
+    const response = await this.client.patch(`/departments/${id}`, departmentData);
+    return response.data;
+  }
+
+  async deleteDepartment(id: string): Promise<void> {
+    await this.client.delete(`/departments/${id}`);
+  }
+
+  // User management endpoints (Admin)
+  async getUserStats() {
+    const response = await this.client.get('/users/stats/overview');
+    return response.data;
+  }
+
+  async updateUserById(id: string, userData: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    role?: string;
+    department?: string;
+    location?: string;
+    status?: string;
+    bio?: string;
+    skills?: string[];
+    avatar?: string;
+  }) {
+    const response = await this.client.patch(`/users/${id}`, userData);
+    return response.data;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await this.client.delete(`/users/${id}`);
+  }
 }
 
-// Create and export a singleton instance
+// Update the singleton instance  
 export const apiClient = new ApiClient();
 export default apiClient;

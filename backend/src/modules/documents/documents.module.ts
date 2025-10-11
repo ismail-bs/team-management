@@ -5,6 +5,8 @@ import { MulterModule } from '@nestjs/platform-express';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
 import { DocumentModel, DocumentSchema } from './schemas/document.schema';
+import { EmailModule } from '../email/email.module';
+import { User, UserSchema } from '../users/schemas/user.schema';
 import awsConfig from '../../config/aws.config';
 
 @Module({
@@ -12,6 +14,7 @@ import awsConfig from '../../config/aws.config';
     ConfigModule.forFeature(awsConfig),
     MongooseModule.forFeature([
       { name: DocumentModel.name, schema: DocumentSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     MulterModule.register({
       limits: {
@@ -22,6 +25,7 @@ import awsConfig from '../../config/aws.config';
         callback(null, true);
       },
     }),
+    EmailModule,
   ],
   controllers: [DocumentsController],
   providers: [DocumentsService],

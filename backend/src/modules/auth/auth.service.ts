@@ -217,7 +217,7 @@ export class AuthService {
       try {
         const deptConversation = await this.chatService.addUserToDepartmentChat(
           updatedUser._id.toString(),
-          updatedUser.department,
+          updatedUser.department.toString(),
         );
 
         if (deptConversation) {

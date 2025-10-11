@@ -11,6 +11,7 @@ import {
 } from '../documents/schemas/document.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { ChatModule } from '../chat/chat.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ChatModule } from '../chat/chat.module';
       { name: User.name, schema: UserSchema },
     ]),
     forwardRef(() => ChatModule),
+    EmailModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

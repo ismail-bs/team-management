@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Send, Plus, Hash, Users, Loader2 } from "lucide-react";
+import { Send, Plus, Hash, Users, Loader2, Info, Wifi, WifiOff } from "lucide-react";
 import { AddChannelDialog } from "@/components/dialogs/AddChannelDialog";
 import { SelectTeamMemberDialog } from "@/components/dialogs/SelectTeamMemberDialog";
+import { GroupInfoDialog } from "@/components/dialogs/GroupInfoDialog";
 import { toast } from "@/hooks/use-toast";
 import { apiClient, Conversation, Message } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +23,8 @@ export default function TeamChat() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [addChannelOpen, setAddChannelOpen] = useState(false);
   const [selectMemberOpen, setSelectMemberOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasConnectedRef = useRef(false);
@@ -64,6 +67,7 @@ export default function TeamChat() {
 
       await websocketClient.connect(token);
       console.log('✅ WebSocket connected successfully');
+      setWsConnected(true);
 
       // Listen for new messages
       websocketClient.on('message:new', (data: any) => {
@@ -113,6 +117,63 @@ export default function TeamChat() {
 
       websocketClient.on('user:offline', (data: any) => {
         console.log('👤 User offline:', data.userId);
+      });
+
+      // Listen for participant changes
+      websocketClient.on('conversation:participant_added', (data: { conversation?: unknown; addedUserId?: string }) => {
+        console.log('👥 Participant added event:', data);
+        toast({
+          title: "New Member Added",
+          description: "A new member has been added to the conversation",
+        });
+        loadConversations(); // Refresh conversations list
+      });
+
+      websocketClient.on('conversation:participant_removed', (data: { conversation?: unknown; removedUserId?: string }) => {
+        console.log('👥 Participant removed event:', data);
+        
+        // If current user was removed, clear selection
+        if (data.removedUserId === user?._id) {
+          setSelectedConversation(null);
+          setMessages([]);
+          toast({
+            title: "Removed from conversation",
+            description: "You have been removed from this conversation",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Member Removed",
+            description: "A member has been removed from the conversation",
+          });
+        }
+        
+        loadConversations(); // Refresh conversations list
+      });
+
+      // Listen for conversation updates (name, description, etc.)
+      websocketClient.on('conversation:updated', (data: { conversation?: any }) => {
+        console.log('🔄 Conversation updated event:', data);
+        
+        const updatedConv = data.conversation;
+        if (!updatedConv) return;
+
+        // Update conversations list
+        setConversations(prev => {
+          return prev.map(conv => 
+            conv._id === updatedConv._id 
+              ? updatedConv
+              : conv
+          );
+        });
+
+        // Update selected conversation if it's the one that changed
+        if (selectedConversation?._id === updatedConv._id) {
+          setSelectedConversation(updatedConv);
+        }
+
+        // Note: Not showing toast here as the user who made the change
+        // already gets a success toast from the API call
       });
 
     } catch (error) {
@@ -194,6 +255,28 @@ export default function TeamChat() {
     } catch (error) {
       console.error('Error selecting conversation:', error);
       setMessages([]);
+    }
+  };
+
+  const reconnectWebSocket = async () => {
+    try {
+      setWsConnected(false);
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        await websocketClient.connect(token);
+        setWsConnected(true);
+        toast({
+          title: "Reconnected",
+          description: "WebSocket connection restored",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to reconnect WebSocket:', error);
+      toast({
+        title: "Reconnection Failed",
+        description: "Could not restore WebSocket connection",
+        variant: "destructive",
+      });
     }
   };
 
@@ -290,7 +373,7 @@ export default function TeamChat() {
   const handleAddChannel = async (channelData: { name: string }) => {
     try {
       const conversation = await apiClient.createConversation({
-        name: channelData.name,
+        title: channelData.name,
         type: 'group',
         participants: user ? [user._id] : [],
       });
@@ -428,7 +511,10 @@ export default function TeamChat() {
         <Card className="w-full md:w-80 flex flex-col">
           <CardHeader className="pb-3 border-b">
             <CardTitle className="text-lg flex items-center justify-between">
-              <span>Messages</span>
+              <div className="flex items-center gap-2">
+                <span>Messages</span>
+                <div className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} title={wsConnected ? 'Connected' : 'Disconnected'} />
+              </div>
               <div className="flex gap-1">
                 <Button
                   variant="ghost"
@@ -445,6 +531,14 @@ export default function TeamChat() {
                   title="New Direct Message"
                 >
                   <Users className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={reconnectWebSocket}
+                  title={wsConnected ? "Reconnect WebSocket" : "Connect WebSocket"}
+                >
+                  {wsConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
                 </Button>
               </div>
             </CardTitle>
@@ -515,29 +609,43 @@ export default function TeamChat() {
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <CardHeader className="border-b pb-3">
-                <div className="flex items-center gap-3">
-                  {selectedConversation.type === 'direct' ? (
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={getConversationAvatar(selectedConversation)} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
-                        {getConversationInitials(selectedConversation)}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                      <Hash className="h-5 w-5 text-white" />
+              <CardHeader className="border-b pb-3 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {selectedConversation.type === 'direct' ? (
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={getConversationAvatar(selectedConversation)} />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
+                          {getConversationInitials(selectedConversation)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <Hash className="h-5 w-5 text-white" />
+                      </div>
+                    )}
+                    <div>
+                      <CardTitle className="text-lg">
+                        {selectedConversation.type === 'group' ? '#' : ''}
+                        {getConversationName(selectedConversation)}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedConversation.participants.length} member{selectedConversation.participants.length !== 1 ? 's' : ''}
+                      </p>
                     </div>
-                  )}
-                  <div>
-                    <CardTitle className="text-lg">
-                      {selectedConversation.type === 'group' ? '#' : ''}
-                      {getConversationName(selectedConversation)}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedConversation.participants.length} member{selectedConversation.participants.length !== 1 ? 's' : ''}
-                    </p>
                   </div>
+
+                  {/* Group Info Button (for group and project chats) */}
+                  {(selectedConversation.type === 'group' || selectedConversation.type === 'project') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setGroupInfoOpen(true)}
+                    >
+                      <Info className="h-4 w-4 mr-1.5" />
+                      <span className="hidden sm:inline">Info</span>
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
 
@@ -660,6 +768,16 @@ export default function TeamChat() {
         onOpenChange={setSelectMemberOpen}
         onSelect={handleSelectMember}
       />
+
+      {/* Group Info Dialog */}
+      {selectedConversation && (selectedConversation.type === 'group' || selectedConversation.type === 'project') && (
+        <GroupInfoDialog
+          open={groupInfoOpen}
+          onOpenChange={setGroupInfoOpen}
+          conversation={selectedConversation}
+          onUpdate={loadConversations}
+        />
+      )}
     </DashboardLayout>
   );
 }

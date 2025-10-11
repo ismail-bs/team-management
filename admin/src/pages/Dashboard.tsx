@@ -7,6 +7,7 @@ import { NewProjectDialog } from "@/components/dialogs/NewProjectDialog";
 import { EditProjectDialog } from "@/components/dialogs/EditProjectDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   BarChart3, 
   CheckCircle, 
@@ -16,11 +17,15 @@ import {
   Plus,
   ArrowRight,
   Loader2,
-  TrendingUp
+  TrendingUp,
+  Video,
+  MapPin,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { apiClient, Project, Meeting } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { format } from "date-fns";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -66,14 +71,17 @@ export default function Dashboard() {
         pendingTasks: taskData.filter(t => t.status === 'open' || t.status === 'in-progress').length,
         teamMembers: userData.length,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Dashboard load error:', error);
       
       let errorMessage = "Failed to load dashboard data";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -93,14 +101,24 @@ export default function Dashboard() {
   }, [user]);
 
   // Handle new project creation
-  const handleNewProject = async (projectData: any) => {
+  const handleNewProject = async (projectData: {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    projectManager: string;
+    teamMembers: string[];
+    budget: string;
+    dueDate?: Date;
+  }) => {
     try {
-      await apiClient.createProject({
+      const newProject = await apiClient.createProject({
         name: projectData.title,
         description: projectData.description,
         priority: projectData.priority,
         status: projectData.status,
         projectManager: projectData.projectManager,
+        teamMembers: projectData.teamMembers || [],
         startDate: new Date().toISOString(),
         endDate: projectData.dueDate?.toISOString(),
         budget: projectData.budget ? parseFloat(projectData.budget) : undefined,
@@ -108,7 +126,7 @@ export default function Dashboard() {
       
       toast({
         title: "Success",
-        description: "Project created successfully",
+        description: "Project created successfully! Team members will receive email notifications.",
       });
       
       setNewProjectOpen(false);
@@ -116,16 +134,19 @@ export default function Dashboard() {
       // Reload dashboard data
       await loadData();
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create project error:', error);
       
       let errorMessage = "Failed to create project";
-      if (error?.response?.data?.message) {
-        errorMessage = Array.isArray(error.response.data.message) 
-          ? error.response.data.message.join(', ')
-          : error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string | string[] } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = Array.isArray(axiosError.response.data.message) 
+            ? axiosError.response.data.message.join(', ')
+            : axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
       
       toast({
@@ -160,37 +181,82 @@ export default function Dashboard() {
               Welcome back! Here's what's happening with your team.
             </p>
           </div>
-          <Button 
-            onClick={() => setNewProjectOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Project
-          </Button>
+          {user?.role === 'admin' && (
+            <Button 
+              onClick={() => setNewProjectOpen(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards with Enhanced Design */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <StatsCard
-            title="Active Projects"
-            value={stats.activeProjects}
-            icon={<BarChart3 className="h-5 w-5 md:h-6 md:w-6 text-blue-500" />}
-          />
-          <StatsCard
-            title="Completed Tasks"
-            value={stats.completedTasks}
-            icon={<CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-green-500" />}
-          />
-          <StatsCard
-            title="Pending Tasks"
-            value={stats.pendingTasks}
-            icon={<Clock className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />}
-          />
-          <StatsCard
-            title="Team Members"
-            value={stats.teamMembers}
-            icon={<Users className="h-5 w-5 md:h-6 md:w-6 text-purple-500" />}
-          />
+          <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/50">
+                  <BarChart3 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Active Projects</p>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {stats.activeProjects}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/50">
+                  <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  {stats.completedTasks}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 rounded-xl bg-orange-100 dark:bg-orange-900/50">
+                  <Clock className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Pending Tasks</p>
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                  {stats.pendingTasks}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-gray-900 hover:shadow-lg transition-all">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 rounded-xl bg-purple-100 dark:bg-purple-900/50">
+                  <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Team Members</p>
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                  {stats.teamMembers}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Grid */}
@@ -224,7 +290,7 @@ export default function Dashboard() {
                     <ProjectCard
                       title={project.name}
                       description={project.description || ''}
-                      progress={Math.round((project.completedTaskCount / Math.max(project.taskCount, 1)) * 100)}
+                      progress={project.progress || 0}
                       status={
                         project.status === 'in-progress' ? 'active' :
                         project.status === 'completed' ? 'completed' :
@@ -260,34 +326,67 @@ export default function Dashboard() {
           {/* Sidebar */}
           <div className="space-y-4">
             {/* Upcoming Meetings */}
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="border-blue-200 shadow-sm">
+              <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <Calendar className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                  <Calendar className="h-5 w-5 text-blue-600" />
                   Upcoming Meetings
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 pt-4">
                 {meetings.length > 0 ? (
                   <>
-                    {meetings.map((meeting) => (
-                      <div 
-                        key={meeting._id} 
-                        className="p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
-                      >
-                        <h4 className="font-medium text-sm">{meeting.title}</h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(meeting.startTime).toLocaleDateString()} at{' '}
-                          {new Date(meeting.startTime).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {meeting.participants?.length || 0} participants
-                        </p>
-                      </div>
-                    ))}
+                    {meetings.map((meeting) => {
+                      const startDate = new Date(meeting.startTime);
+                      const isToday = startDate.toDateString() === new Date().toDateString();
+                      const isTomorrow = new Date(startDate).setHours(0,0,0,0) === new Date(new Date().setDate(new Date().getDate() + 1)).setHours(0,0,0,0);
+                      
+                      return (
+                        <div 
+                          key={meeting._id} 
+                          className="p-3 border rounded-lg hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-900 dark:to-blue-950/20"
+                          onClick={() => navigate('/meetings')}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-sm flex-1 pr-2">{meeting.title}</h4>
+                            {isToday && (
+                              <Badge variant="default" className="bg-blue-600 text-xs">Today</Badge>
+                            )}
+                            {isTomorrow && (
+                              <Badge variant="secondary" className="text-xs">Tomorrow</Badge>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>
+                                {format(startDate, 'MMM dd, yyyy')} at {format(startDate, 'h:mm a')}
+                              </span>
+                            </div>
+                            
+                            {meeting.location && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <MapPin className="h-3.5 w-3.5" />
+                                <span className="truncate">{meeting.location}</span>
+                              </div>
+                            )}
+                            
+                            {meeting.meetingLink && (
+                              <div className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700">
+                                <Video className="h-3.5 w-3.5" />
+                                <span>Join Online</span>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Users className="h-3.5 w-3.5" />
+                              <span>{meeting.participants?.length || 0} participant{meeting.participants?.length !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -295,12 +394,22 @@ export default function Dashboard() {
                       onClick={() => navigate('/meetings')}
                     >
                       View All Meetings
+                      <ArrowRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No upcoming meetings
-                  </p>
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground mb-4">No upcoming meetings</p>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => navigate('/meetings')}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Schedule Meeting
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>

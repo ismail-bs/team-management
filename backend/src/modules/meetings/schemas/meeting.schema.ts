@@ -84,6 +84,9 @@ export class Meeting {
   @Prop({ maxlength: 2000 })
   notes?: string;
 
+  @Prop({ maxlength: 3000 })
+  summary?: string;
+
   @Prop({ type: [String], default: [] })
   decisions: string[];
 

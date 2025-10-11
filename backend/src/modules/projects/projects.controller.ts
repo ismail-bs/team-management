@@ -30,7 +30,13 @@ import {
 } from './dto/project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import {
+  RequirePermissions,
+  Resource,
+} from '../../common/decorators/permissions.decorator';
+import { Permission } from '../../common/enums/permission.enum';
 import { Role } from '../../common/enums/role.enum.js';
 import { ProjectStatus } from '../../common/enums/project-status.enum.js';
 import { Priority } from '../../common/enums/priority.enum.js';
@@ -48,13 +54,17 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
-  @ApiOperation({ summary: 'Create a new project' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permission.PROJECT_CREATE)
+  @ApiOperation({ summary: 'Create a new project (Admin only)' })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Project created successfully',
     type: ProjectResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Only Admin can create projects',
   })
   async create(
     @Body() createProjectDto: CreateProjectDto,
@@ -143,9 +153,10 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
-  @ApiOperation({ summary: 'Update project' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permission.PROJECT_UPDATE)
+  @Resource('project')
+  @ApiOperation({ summary: 'Update project (Admin/PM for their projects)' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -176,9 +187,10 @@ export class ProjectsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
-  @ApiOperation({ summary: 'Delete project' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permission.PROJECT_DELETE)
+  @Resource('project')
+  @ApiOperation({ summary: 'Delete project (Admin/PM for their projects)' })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
@@ -200,9 +212,12 @@ export class ProjectsController {
   }
 
   @Post(':id/team-members')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
-  @ApiOperation({ summary: 'Add team member to project' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permission.PROJECT_MANAGE_TEAM)
+  @Resource('project')
+  @ApiOperation({
+    summary: 'Add team member to project (Admin/PM for their projects)',
+  })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -237,9 +252,12 @@ export class ProjectsController {
   }
 
   @Delete(':id/team-members')
-  @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
-  @ApiOperation({ summary: 'Remove team member from project' })
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions(Permission.PROJECT_MANAGE_TEAM)
+  @Resource('project')
+  @ApiOperation({
+    summary: 'Remove team member from project (Admin/PM for their projects)',
+  })
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({
     status: HttpStatus.OK,

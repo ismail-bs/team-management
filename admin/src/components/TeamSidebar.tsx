@@ -6,6 +6,8 @@ import {
   MessageSquare, 
   FolderOpen, 
   Users, 
+  UserCog,
+  Building2,
   Menu,
   X,
   LogOut,
@@ -30,7 +32,9 @@ const navigation = [
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Team Chat", href: "/chat", icon: MessageSquare },
   { name: "Document Hub", href: "/documents", icon: FolderOpen },
-  { name: "Team Members", href: "/team", icon: Users },
+  // { name: "Team Members", href: "/team", icon: Users }, // Hidden - use User Management instead
+  { name: "Departments", href: "/departments", icon: Building2, adminOnly: true },
+  { name: "User Management", href: "/user-management", icon: UserCog, adminOnly: true },
 ];
 
 export function TeamSidebar() {
@@ -91,7 +95,9 @@ export function TeamSidebar() {
     <div className="flex flex-col h-full">
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
+        {navigation
+          .filter(item => !item.adminOnly || user?.role === 'admin')
+          .map((item) => {
           const active = isActive(item.href);
           return (
             <NavLink

@@ -62,23 +62,34 @@ export default function AccountSettings() {
         description: "Your account settings have been updated successfully",
       });
       
-    } catch (error: any) {
+    } catch (error) {
       let errorMessage = "Failed to update settings";
-      if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error?.message) {
-        errorMessage = error.message;
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
       }
-      
       toast({
         title: "Error",
         description: errorMessage,
-        variant: "destructive",
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
 
   const getInitials = () => {
     return `${formData.firstName[0] || ''}${formData.lastName[0] || ''}`.toUpperCase() || 'U';

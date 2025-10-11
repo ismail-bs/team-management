@@ -31,8 +31,14 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:5173',
+      'http://localhost:8081',
+      'http://localhost:8080',
+      'http://localhost:3000',
+    ],
     credentials: true,
+    methods: ['GET', 'POST'],
   },
   namespace: '/chat',
 })
@@ -57,18 +63,24 @@ export class ChatGateway
 
   async handleConnection(client: AuthenticatedSocket): Promise<void> {
     try {
+      this.logger.log(`🔌 Client ${client.id} attempting to connect`);
+      this.logger.log(`🔌 Handshake auth:`, client.handshake.auth);
+      this.logger.log(`🔌 Handshake headers:`, client.handshake.headers);
+
       const token =
         client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '');
 
       if (!token) {
         this.logger.warn(
-          `Client ${client.id} attempted to connect without token`,
+          `❌ Client ${client.id} attempted to connect without token`,
         );
         client.emit('error', { message: 'Authentication required' });
         client.disconnect();
         return;
       }
+
+      this.logger.log(`🔑 Token received for client ${client.id}`);
 
       let payload;
       try {
@@ -110,20 +122,30 @@ export class ChatGateway
           client.userId,
           {},
         );
+        this.logger.log(
+          `🔗 Found ${conversations.length} conversations for user ${client.userId}`,
+        );
         for (const conversation of conversations) {
           await client.join(`conversation:${conversation._id}`);
+          this.logger.log(
+            `🔗 Joined conversation room: ${conversation._id} (type: ${conversation.type})`,
+          );
         }
       } catch (error) {
         this.logger.error('Error joining conversation rooms:', error.message);
       }
 
-      this.logger.log(`Client ${client.id} connected as user ${client.userId}`);
+      this.logger.log(
+        `✅ Client ${client.id} connected as user ${client.userId}`,
+      );
 
       // Notify other users that this user is online
       client.broadcast.emit('user:online', {
         userId: client.userId,
         user: client.user,
       });
+
+      this.logger.log(`📢 User ${client.userId} online notification sent`);
     } catch (error) {
       this.logger.error(
         `Authentication failed for client ${client.id}:`,
@@ -176,11 +198,19 @@ export class ChatGateway
       );
 
       // Broadcast to all participants in the conversation
+      this.logger.log(
+        `📢 Broadcasting message to conversation:${sendMessageDto.conversation}`,
+      );
+      this.logger.log(`📢 Message content: ${sendMessageDto.content}`);
+      this.logger.log(`📢 Message type: ${sendMessageDto.type}`);
+
       this.server
         .to(`conversation:${sendMessageDto.conversation}`)
         .emit('message:new', {
           message: message,
         });
+
+      this.logger.log(`✅ Message broadcasted to conversation room`);
 
       // Send acknowledgment to sender
       client.emit('message:sent', {

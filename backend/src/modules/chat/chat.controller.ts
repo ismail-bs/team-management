@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,6 +39,8 @@ import type { AuthenticatedRequest } from '../../common/interfaces/authenticated
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ChatController {
+  private readonly logger = new Logger(ChatController.name);
+
   constructor(
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
@@ -97,11 +100,29 @@ export class ChatController {
     @Body() updateConversationDto: UpdateConversationDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.chatService.updateConversation(
+    this.logger.log(`🔄 Updating conversation ${id}`);
+    this.logger.log(`🔄 Update data:`, updateConversationDto);
+
+    const updatedConversation = await this.chatService.updateConversation(
       id,
       updateConversationDto,
       req.user.sub,
     );
+
+    this.logger.log(`🔄 Conversation updated, emitting WebSocket event`);
+
+    // Emit WebSocket event to all participants in the conversation
+    this.chatGateway.server
+      .to(`conversation:${id}`)
+      .emit('conversation:updated', {
+        conversation: updatedConversation,
+      });
+
+    this.logger.log(
+      `✅ Conversation update broadcasted to room: conversation:${id}`,
+    );
+
+    return updatedConversation;
   }
 
   @Post('conversations/:id/participants')
@@ -112,7 +133,21 @@ export class ChatController {
     @Body() addParticipantDto: AddParticipantDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.chatService.addParticipant(id, addParticipantDto, req.user.sub);
+    const updatedConversation = await this.chatService.addParticipant(
+      id,
+      addParticipantDto,
+      req.user.sub,
+    );
+
+    // Emit WebSocket event to all participants
+    this.chatGateway.server
+      .to(`conversation:${id}`)
+      .emit('conversation:participant_added', {
+        conversation: updatedConversation,
+        addedUserId: addParticipantDto.userId,
+      });
+
+    return updatedConversation;
   }
 
   @Delete('conversations/:id/participants')
@@ -123,11 +158,21 @@ export class ChatController {
     @Body() removeParticipantDto: RemoveParticipantDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.chatService.removeParticipant(
+    const updatedConversation = await this.chatService.removeParticipant(
       id,
       removeParticipantDto,
       req.user.sub,
     );
+
+    // Emit WebSocket event to all remaining participants
+    this.chatGateway.server
+      .to(`conversation:${id}`)
+      .emit('conversation:participant_removed', {
+        conversation: updatedConversation,
+        removedUserId: removeParticipantDto.userId,
+      });
+
+    return updatedConversation;
   }
 
   // Message endpoints
@@ -138,17 +183,39 @@ export class ChatController {
     @Body() sendMessageDto: SendMessageDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    this.logger.log(
+      `📨 HTTP API: Sending message to conversation ${sendMessageDto.conversation}`,
+    );
+    this.logger.log(`📨 Content: ${sendMessageDto.content}`);
+    this.logger.log(`📨 Type: ${sendMessageDto.type}`);
+    this.logger.log(`📨 User: ${req.user.sub}`);
+
     const message = await this.chatService.sendMessage(
       sendMessageDto,
       req.user.sub,
     );
 
+    this.logger.log(`📨 Message saved with ID: ${message._id}`);
+
+    // Get room info for debugging
+    const roomName = `conversation:${sendMessageDto.conversation}`;
+    const socketsInRoom = await this.chatGateway.server
+      .in(roomName)
+      .fetchSockets();
+    this.logger.log(`📢 Broadcasting to room: ${roomName}`);
+    this.logger.log(`📢 Clients in room: ${socketsInRoom.length}`);
+    socketsInRoom.forEach((socket, index) => {
+      this.logger.log(`📢   Client ${index + 1}: ${socket.id}`);
+    });
+
     // Emit WebSocket event for real-time delivery (consistent with gateway format)
-    this.chatGateway.server
-      .to(`conversation:${sendMessageDto.conversation}`)
-      .emit('message:new', {
-        message: message,
-      });
+    this.chatGateway.server.to(roomName).emit('message:new', {
+      message: message,
+    });
+
+    this.logger.log(
+      `✅ Message broadcasted to ${socketsInRoom.length} clients`,
+    );
 
     return message;
   }

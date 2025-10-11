@@ -291,7 +291,12 @@ export default function DocumentHub() {
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Document Hub</h1>
-            <p className="text-muted-foreground">Centralized repository for all team documents</p>
+            <p className="text-muted-foreground">
+              {user?.role === 'admin' 
+                ? 'View and manage all team documents'
+                : 'Manage your documents and view shared files'
+              }
+            </p>
           </div>
           <div className="flex gap-2">
             <input
@@ -318,13 +323,17 @@ export default function DocumentHub() {
             <Card className="shadow-soft">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-                <p className="text-sm text-muted-foreground">Total Documents</p>
+                <p className="text-sm text-muted-foreground">
+                  {user?.role === 'admin' ? 'Total Documents (All)' : 'My Documents'}
+                </p>
               </CardContent>
             </Card>
             <Card className="shadow-soft">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-bold text-foreground">{formatFileSize(stats.totalSize)}</div>
-                <p className="text-sm text-muted-foreground">Total Size</p>
+                <p className="text-sm text-muted-foreground">
+                  {user?.role === 'admin' ? 'Total Size (All)' : 'My Storage Used'}
+                </p>
               </CardContent>
             </Card>
             <Card className="shadow-soft">
@@ -343,7 +352,8 @@ export default function DocumentHub() {
         )}
 
         {/* Categories Overview */}
-        {categories.length > 0 && (
+        {/* TODO: Temporarily commented out - Document Categories section */}
+        {/* {categories.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Document Categories</h2>
@@ -369,7 +379,7 @@ export default function DocumentHub() {
               ))}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Search & Filters */}
         <Card className="shadow-soft">
@@ -384,7 +394,8 @@ export default function DocumentHub() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              {/* TODO: Temporarily commented out - Filter by Category dropdown */}
+              {/* <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
@@ -396,7 +407,7 @@ export default function DocumentHub() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
           </CardContent>
         </Card>
@@ -485,42 +496,48 @@ export default function DocumentHub() {
                         >
                           <Share className="h-3 w-3" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0"
-                          onClick={() => {
-                            setSelectedDocument(doc);
-                            setEditDialogOpen(true);
-                          }}
-                          title="Edit"
-                        >
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Delete">
-                              <Trash2 className="h-3 w-3 text-destructive" />
+                        
+                        {/* Edit and Delete buttons only for uploader or admin */}
+                        {(doc.uploadedBy?._id === user?._id || user?.role === 'admin') && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                setSelectedDocument(doc);
+                                setEditDialogOpen(true);
+                              }}
+                              title="Edit"
+                            >
+                              <Edit className="h-3 w-3" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Document</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{doc.name}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                className="bg-destructive hover:bg-destructive/90"
-                                onClick={() => handleDeleteDocument(doc._id)}
-                              >
-                                Delete Document
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Delete">
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Document</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete "{doc.name}"? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    className="bg-destructive hover:bg-destructive/90"
+                                    onClick={() => handleDeleteDocument(doc._id)}
+                                  >
+                                    Delete Document
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </div>
                     </div>
                     
@@ -540,6 +557,9 @@ export default function DocumentHub() {
                         </Avatar>
                         <span className="truncate">
                           {doc.uploadedBy?.firstName} {doc.uploadedBy?.lastName}
+                          {doc.uploadedBy?._id === user?._id && (
+                            <span className="text-blue-600 font-medium ml-1">(You)</span>
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -564,10 +584,12 @@ export default function DocumentHub() {
                     )}
                     
                     <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {/* TODO: Temporarily commented out - Downloads count */}
+                      {/* <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Eye className="h-3 w-3" />
                         <span>{doc.downloadCount || 0} downloads</span>
-                      </div>
+                      </div> */}
+                      <div></div>
                       <Badge variant={doc.visibility === 'public' ? 'default' : 'secondary'} className="text-xs">
                         {doc.visibility}
                       </Badge>

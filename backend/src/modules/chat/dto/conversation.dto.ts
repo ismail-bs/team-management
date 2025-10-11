@@ -17,7 +17,8 @@ import { ConversationType } from '../schemas/conversation.schema';
 
 export class CreateConversationDto {
   @ApiPropertyOptional({
-    description: 'Conversation title (required for group/project, optional for direct)',
+    description:
+      'Conversation title (required for group/project, optional for direct)',
     minLength: 1,
     maxLength: 100,
     example: 'Project Alpha Discussion',

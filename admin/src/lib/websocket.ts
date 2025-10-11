@@ -78,6 +78,7 @@ class WebSocketClient {
 
       // Create new connection
       const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
+      console.log('🔌 Connecting to WebSocket:', `${wsUrl}/chat`);
       this.socket = io(`${wsUrl}/chat`, {
         auth: {
           token: this.token
@@ -92,13 +93,13 @@ class WebSocketClient {
 
       // Connection event handlers
       this.socket.on('connect', () => {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected successfully');
         this.reconnectAttempts = 0;
         resolve();
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log('WebSocket disconnected:', reason);
+        console.log('❌ WebSocket disconnected:', reason);
         if (reason === 'io server disconnect') {
           // Server disconnected, try to reconnect
           this.handleReconnect();
@@ -106,13 +107,24 @@ class WebSocketClient {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('WebSocket connection error:', error);
+        console.error('❌ WebSocket connection error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          description: error.description,
+          context: error.context,
+          type: error.type
+        });
         if (error.message === 'Authentication error') {
           // Token might be expired, clear it
           this.token = null;
           localStorage.removeItem('access_token');
         }
         reject(error);
+      });
+
+      // Add authentication error handler
+      this.socket.on('error', (error) => {
+        console.error('❌ WebSocket error:', error);
       });
 
       // Set connection timeout

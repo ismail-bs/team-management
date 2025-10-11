@@ -5,15 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Loader2, Clock } from "lucide-react";
+import { Edit, Loader2, Clock, Users, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Meeting } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Meeting, User } from "@/lib/api";
 
 interface EditMeetingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  meeting: Meeting;
-  onUpdate: (meetingData: any) => Promise<void>;
+  meeting: Meeting | null;
+  onSubmit: (meetingData: {
+    title: string;
+    description: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    type: string;
+    location: string;
+    meetingLink: string;
+    participants: string[];
+    agenda: string;
+  }) => Promise<void>;
 }
 
 // Generate time options
@@ -35,7 +47,7 @@ const generateTimeOptions = () => {
   return times;
 };
 
-export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: EditMeetingDialogProps) {
+export function EditMeetingDialog({ open, onOpenChange, meeting, onSubmit }: EditMeetingDialogProps) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
@@ -48,6 +60,7 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: Edi
     location: "",
     meetingLink: "",
     agenda: "",
+    participants: [] as string[],
   });
 
   const timeOptions = generateTimeOptions();
@@ -67,6 +80,7 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: Edi
         location: meeting.location || "",
         meetingLink: meeting.meetingLink || "",
         agenda: meeting.agenda || "",
+        participants: meeting.participants?.map(p => p._id) || [],
       });
       setErrors({});
     }
@@ -146,14 +160,16 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: Edi
       const endDateTime = new Date(formData.date);
       endDateTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
       
-      await onUpdate({
+      await onSubmit({
         title: formData.title,
         description: formData.description,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
         type: formData.type,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
         location: formData.location,
         meetingLink: formData.meetingLink,
+        participants: formData.participants,
         agenda: formData.agenda,
       });
       
@@ -176,6 +192,10 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: Edi
       });
     }
   };
+
+  if (!meeting) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -305,6 +325,39 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate }: Edi
                 <p className="text-sm text-destructive">{errors.type}</p>
               )}
             </div>
+
+            {/* Participants */}
+            {meeting?.participants && meeting.participants.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Participants ({formData.participants.length})
+                </Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20">
+                  {meeting.participants.map((participant) => (
+                    <Badge
+                      key={participant._id}
+                      variant={formData.participants.includes(participant._id) ? "default" : "secondary"}
+                      className="flex items-center gap-1 cursor-pointer"
+                      onClick={() => {
+                        const newParticipants = formData.participants.includes(participant._id)
+                          ? formData.participants.filter(id => id !== participant._id)
+                          : [...formData.participants, participant._id];
+                        setFormData(prev => ({ ...prev, participants: newParticipants }));
+                      }}
+                    >
+                      {participant.firstName} {participant.lastName}
+                      {formData.participants.includes(participant._id) && (
+                        <X className="h-3 w-3 ml-1" />
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click on participants to toggle their inclusion in the meeting
+                </p>
+              </div>
+            )}
 
             {/* Location and Meeting Link */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

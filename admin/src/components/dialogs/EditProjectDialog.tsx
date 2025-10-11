@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Edit, Trash2 } from "lucide-react";
+import { CalendarIcon, Edit, Trash2, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { apiClient, User, Project } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EditProjectDialogProps {
   open: boolean;
@@ -21,10 +23,12 @@ interface EditProjectDialogProps {
 }
 
 export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: EditProjectDialogProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [date, setDate] = useState<Date | undefined>();
   const [projectManagers, setProjectManagers] = useState<User[]>([]);
+  const [progress, setProgress] = useState<number>(0);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -33,6 +37,9 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
     projectManager: "",
     budget: ""
   });
+
+  // Check if user can edit progress (admin or project_manager)
+  const canEditProgress = user?.role === 'admin' || user?.role === 'project_manager';
 
   useEffect(() => {
     if (open && project) {
@@ -50,6 +57,9 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
           : project.projectManager || "",
         budget: project.budget?.toString() || ""
       });
+      
+      // Set progress from project (default to 0 if not set)
+      setProgress(project.progress || 0);
       
       if (project.endDate) {
         setDate(new Date(project.endDate));
@@ -89,10 +99,43 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
       return;
     }
 
-    if (!formData.projectManager) {
+    // Project manager is optional - only validate if it's provided but invalid
+    if (formData.projectManager && formData.projectManager.length !== 24) {
       toast({
         title: "Validation Error",
-        description: "Please select a project manager",
+        description: "Invalid project manager selection",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate progress can only be updated if status allows it
+    const currentProgress = project.progress || 0;
+    if (progress < currentProgress) {
+      toast({
+        title: "Validation Error",
+        description: `Progress cannot decrease from ${currentProgress}% to ${progress}%`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if progress can be updated based on status
+    const statusesAllowingProgress = ['in-progress', 'completed'];
+    if (progress !== currentProgress && !statusesAllowingProgress.includes(formData.status)) {
+      toast({
+        title: "Validation Error",
+        description: 'Progress can only be updated when status is "In Progress" or "Completed"',
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if trying to revert from completed
+    if (project.status === 'completed' && formData.status !== 'completed') {
+      toast({
+        title: "Validation Error",
+        description: 'Cannot revert status from "Completed". Completed projects are final.',
         variant: "destructive"
       });
       return;
@@ -102,11 +145,12 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
       setLoading(true);
       
       // Build update payload - only include fields that have values
-      const updatePayload: any = {
+      const updatePayload: Record<string, unknown> = {
         name: formData.title,
         description: formData.description,
         priority: formData.priority,
         status: formData.status,
+        progress: progress, // Include progress
       };
 
       // Only include projectManager if it's a valid MongoDB ObjectId
@@ -136,9 +180,20 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
       
     } catch (error) {
       console.error('Update error:', error);
+      
+      let errorMessage = "Failed to update project";
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update project",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -190,38 +245,20 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
           </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Project Title *</Label>
-              <Input
-                id="title"
-                placeholder="Enter project title"
-                value={formData.title}
-                onChange={(e) => handleInputChange("title", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="projectManager">Project Manager *</Label>
-              <Select 
-                value={formData.projectManager} 
-                onValueChange={(value) => handleInputChange("projectManager", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectManagers.map((manager) => (
-                    <SelectItem key={manager._id} value={manager._id}>
-                      {manager.firstName} {manager.lastName} ({manager.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Project Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title">Project Title *</Label>
+            <Input
+              id="title"
+              placeholder="Enter project title"
+              value={formData.title}
+              onChange={(e) => handleInputChange("title", e.target.value)}
+              required
+            />
           </div>
 
+          {/* Project Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Project Description *</Label>
             <Textarea
@@ -234,10 +271,32 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Project Manager (Read-Only) */}
+          <div className="space-y-2">
+            <Label htmlFor="projectManager" className="flex items-center gap-2">
+              Project Manager
+              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+            </Label>
+            <Input
+              id="projectManager"
+              value={
+                typeof project.projectManager === 'object' 
+                  ? `${project.projectManager.firstName} ${project.projectManager.lastName}`
+                  : 'Not Assigned'
+              }
+              disabled
+              className="bg-muted/50 cursor-not-allowed"
+            />
+            <p className="text-xs text-muted-foreground">
+              Project Manager cannot be changed.
+            </p>
+          </div>
+
+          {/* Priority and Status - Properly Aligned 2 Column Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority *</Label>
-              <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+              <Label htmlFor="priority" className="block">Priority *</Label>
+              <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
@@ -249,10 +308,21 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                <SelectTrigger>
+              <Label htmlFor="status" className="flex items-center gap-2">
+                Status *
+                {project.status === 'completed' && (
+                  <Lock className="h-3.5 w-3.5 text-green-600" />
+                )}
+              </Label>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value) => handleInputChange("status", value)}
+                disabled={project.status === 'completed'}
+                required
+              >
+                <SelectTrigger className={project.status === 'completed' ? 'opacity-60' : ''}>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,6 +334,19 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Completion Message for Status */}
+          {project.status === 'completed' && (
+            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-xs text-green-700 dark:text-green-300">
+                ✓ This project is completed and cannot be reverted.
+              </p>
+            </div>
+          )}
+
+          {/* Budget and Due Date - Properly Aligned 2 Column Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="budget">Budget</Label>
               <Input
@@ -272,63 +355,174 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
                 placeholder="$0"
                 value={formData.budget}
                 onChange={(e) => handleInputChange("budget", e.target.value)}
+                min="0"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : "Pick a due date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="progress" className="flex items-center gap-2">
+                Project Progress
+                {(!canEditProgress || 
+                  formData.status === 'not-started' || 
+                  formData.status === 'on-hold' || 
+                  formData.status === 'cancelled' ||
+                  project.status === 'completed') && (
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </Label>
+              <div className="flex items-center gap-2">
+                {progress !== (project.progress || 0) && (
+                  <span className="text-xs text-muted-foreground">
+                    {project.progress || 0}% →
+                  </span>
+                )}
+                <span className={cn(
+                  "text-sm font-semibold px-2.5 py-1 rounded-full",
+                  progress === 100 
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                    : progress > 0
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                )}>
+                  {progress}%
+                </span>
+              </div>
+            </div>
+            
+            {/* Simple Progress Bar with Editable Input */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                {/* Visual Progress Bar (shows current value) */}
+                <div className="relative flex-1 h-9 bg-gray-200 dark:bg-gray-800 rounded-md overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full transition-all duration-300 ease-out",
+                      progress === 100 
+                        ? "bg-gradient-to-r from-green-500 to-green-600"
+                        : "bg-gradient-to-r from-blue-500 to-purple-600"
+                    )}
+                    style={{ width: `${progress}%` }}
+                  >
+                    <div className="h-full w-full bg-white/20" />
+                  </div>
+                  
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-sm font-semibold text-white drop-shadow">
+                      {progress}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Editable Input (on the right) */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Input
+                    type="number"
+                    min={project.progress || 0}
+                    max={100}
+                    step={5}
+                    value={progress}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      if (val >= (project.progress || 0) && val <= 100) {
+                        setProgress(val);
+                      }
+                    }}
+                    className="w-16 text-center font-semibold"
+                    disabled={
+                      !canEditProgress || 
+                      formData.status === 'not-started' || 
+                      formData.status === 'on-hold' || 
+                      formData.status === 'cancelled' ||
+                      project.status === 'completed'
+                    }
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+              </div>
+              
+              <div className="text-xs text-muted-foreground px-1">
+                Range: {project.progress || 0}% - 100%
+              </div>
+            </div>
+            
+            {/* Progress Rules Info */}
+            <div className="space-y-2">
+              {!canEditProgress && (
+                <div className="text-xs bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md p-2 flex items-start gap-2">
+                  <Lock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <span>Only Admin and Project Manager can update progress</span>
+                </div>
+              )}
+              
+              {(formData.status === 'not-started' || 
+                formData.status === 'on-hold' || 
+                formData.status === 'cancelled') && (
+                <div className="text-xs bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md p-2 flex items-start gap-2">
+                  <span className="text-blue-600">ℹ️</span>
+                  <span>Progress can only be updated when status is "In Progress". Change status first.</span>
+                </div>
+              )}
+              
+              {project.status === 'completed' && (
+                <div className="text-xs bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md p-2 flex items-start gap-2">
+                  <span className="text-green-600">✓</span>
+                  <span>This project is completed. Status and progress are locked.</span>
+                </div>
+              )}
+              
+              {formData.status === 'in-progress' && canEditProgress && (
+                <div className="text-xs bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md p-2 flex items-start gap-2">
+                  <span className="text-green-600">✓</span>
+                  <span>Progress can only increase (from {project.progress || 0}% onwards). Cannot decrease.</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="flex justify-between gap-3 pt-4">
+          <div className="flex justify-end gap-2 pt-4">
             <Button 
               type="button" 
-              variant="destructive" 
-              onClick={handleDelete}
-              disabled={deleting}
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? 'Deleting...' : 'Delete Project'}
+              Cancel
             </Button>
-            
-            <div className="flex gap-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
-                disabled={loading}
-              >
-                {loading ? 'Updating...' : 'Update Project'}
-              </Button>
-            </div>
+            <Button 
+              type="submit" 
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
+              disabled={loading || project.status === 'completed'}
+            >
+              {loading ? 'Updating...' : 'Update Project'}
+            </Button>
           </div>
         </form>
       </DialogContent>

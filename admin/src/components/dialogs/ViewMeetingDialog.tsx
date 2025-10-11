@@ -8,12 +8,14 @@ import { Meeting } from "@/lib/api";
 interface ViewMeetingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  meeting: Meeting;
+  meeting: Meeting | null;
   onEdit: () => void;
   onDelete: () => void;
+  onAddNotes?: () => void;
+  canEdit?: boolean;
 }
 
-export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelete }: ViewMeetingDialogProps) {
+export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelete, onAddNotes, canEdit }: ViewMeetingDialogProps) {
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString([], { 
       hour: '2-digit', 
@@ -29,6 +31,13 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
       day: 'numeric'
     });
   };
+
+  if (!meeting) {
+    return null;
+  }
+
+  // Check if meeting is in the past
+  const isPast = new Date(meeting.endTime) < new Date();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,35 +199,64 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
               </div>
             </div>
           )}
+
+          {/* Summary */}
+          {meeting.summary && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <h3 className="font-semibold">Summary</h3>
+              </div>
+              <div className="p-4 rounded-lg bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 border border-green-200 dark:border-green-800">
+                <p className="text-sm whitespace-pre-wrap">{meeting.summary}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
         <div className="flex justify-between px-6 py-4 border-t bg-background">
-          <Button 
-            variant="destructive" 
-            onClick={() => {
-              onDelete();
-              onOpenChange(false);
-            }}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Meeting
-          </Button>
+          {!isPast && canEdit && (
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                onDelete();
+                onOpenChange(false);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Meeting
+            </Button>
+          )}
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button 
-              onClick={() => {
-                onEdit();
-                onOpenChange(false);
-              }}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Meeting
-            </Button>
+            {!isPast && canEdit && (
+              <Button 
+                onClick={() => {
+                  onEdit();
+                  onOpenChange(false);
+                }}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Meeting
+              </Button>
+            )}
+            {isPast && canEdit && !meeting.notes && onAddNotes && (
+              <Button 
+                onClick={() => {
+                  onAddNotes();
+                  onOpenChange(false);
+                }}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Add Notes
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

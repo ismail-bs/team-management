@@ -29,6 +29,9 @@ import {
   MeetingResponseDto,
 } from './dto/meeting.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 import type { AuthenticatedRequest } from '../../common/interfaces/authenticated-request.interface.js';
 
 @ApiTags('meetings')
@@ -39,7 +42,11 @@ export class MeetingsController {
   constructor(private readonly meetingsService: MeetingsService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new meeting' })
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.PROJECT_MANAGER)
+  @ApiOperation({
+    summary: 'Create a new meeting (Admin & Project Manager only)',
+  })
   @ApiResponse({
     status: 201,
     description: 'Meeting created successfully',
@@ -47,6 +54,10 @@ export class MeetingsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only Admin and Project Manager can create meetings',
+  })
   async create(
     @Body() createMeetingDto: CreateMeetingDto,
     @Request() req: AuthenticatedRequest,
