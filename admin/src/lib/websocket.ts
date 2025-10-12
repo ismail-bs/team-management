@@ -77,7 +77,7 @@ class WebSocketClient {
       }
 
       // Create new connection
-      const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
+      const wsUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_DEFAULT_WS_URL || 'http://localhost:3000';
       console.log('🔌 Connecting to WebSocket:', `${wsUrl}/chat`);
       this.socket = io(`${wsUrl}/chat`, {
         auth: {
@@ -110,9 +110,8 @@ class WebSocketClient {
         console.error('❌ WebSocket connection error:', error);
         console.error('Error details:', {
           message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
+          name: error.name,
+          stack: error.stack,
         });
         if (error.message === 'Authentication error') {
           // Token might be expired, clear it

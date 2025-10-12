@@ -76,9 +76,12 @@ export class EmailService {
   constructor(private configService: ConfigService) {
     this.fromEmail =
       this.configService.get<string>('EMAIL_FROM') ||
+      process.env.DEFAULT_FROM_EMAIL ||
       'noreply@teammanagement.com';
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+      this.configService.get<string>('FRONTEND_URL') ||
+      process.env.DEFAULT_FRONTEND_URL ||
+      'http://localhost:5173';
 
     this.initializeTransporter();
   }

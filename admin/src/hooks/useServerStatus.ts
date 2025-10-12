@@ -25,7 +25,7 @@ export const useServerStatus = (options: UseServerStatusOptions = {}) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/health`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || import.meta.env.VITE_DEFAULT_API_URL || 'http://localhost:3000'}/health`, {
         method: 'GET',
         signal: controller.signal,
         headers: {
@@ -53,7 +53,7 @@ export const useServerStatus = (options: UseServerStatusOptions = {}) => {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/health`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || import.meta.env.VITE_DEFAULT_API_URL || 'http://localhost:3000'}/health`, {
             method: 'GET',
             signal: controller.signal,
             headers: {

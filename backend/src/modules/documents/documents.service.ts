@@ -544,6 +544,7 @@ export class DocumentsService {
       // Generate document URL
       const frontendUrl =
         this.configService.get<string>('FRONTEND_URL') ||
+        process.env.DEFAULT_FRONTEND_URL ||
         'http://localhost:5173';
       const documentUrl = `${frontendUrl}/document-hub`;
 
