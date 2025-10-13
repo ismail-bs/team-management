@@ -75,7 +75,10 @@ export function SelectTeamMemberDialog({
         name: `${user.firstName} ${user.lastName}`,
         status: user.status === 'active' ? 'online' : 'offline',
         role: user.role?.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Member',
-        department: user.department || 'General',
+        // Ensure department is a string; backend may return an object
+        department: typeof user.department === 'object' && user.department !== null
+          ? (user.department.name || 'General')
+          : (user.department || 'General'),
         avatar: user.avatar,
         initials: `${user.firstName[0]}${user.lastName[0]}`.toUpperCase(),
       }));

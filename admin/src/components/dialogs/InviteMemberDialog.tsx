@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, Settings } from "lucide-react";
+import { UserPlus, Settings, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { DepartmentManagementDialog } from "./DepartmentManagementDialog";
 
@@ -20,12 +20,13 @@ interface InviteMemberData {
 interface InviteMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (memberData: InviteMemberData) => void;
+  onSubmit: (memberData: InviteMemberData) => Promise<void> | void;
 }
 
 export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMemberDialogProps) {
   const [departments, setDepartments] = useState<Array<{_id: string; name: string}>>([]);
   const [deptManagementOpen, setDeptManagementOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -64,11 +65,13 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
     }
     
     try {
+      setSubmitting(true);
       // Call parent's onSubmit to handle the API call
-      onSubmit(formData);
+      await onSubmit(formData);
+      // Close only on successful invite
       onOpenChange(false);
-      
-      // Reset form
+
+      // Reset form after successful submission
       setFormData({
         email: "",
         firstName: "",
@@ -78,7 +81,9 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
       });
     } catch (error) {
       console.error('Error inviting member:', error);
-      // Error handling is done by parent component
+      // Keep dialog open; parent shows the error toast
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -107,6 +112,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
@@ -119,6 +125,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
                 value={formData.firstName}
                 onChange={(e) => handleInputChange("firstName", e.target.value)}
                 required
+                disabled={submitting}
               />
             </div>
 
@@ -130,6 +137,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
                 value={formData.lastName}
                 onChange={(e) => handleInputChange("lastName", e.target.value)}
                 required
+                disabled={submitting}
               />
             </div>
           </div>
@@ -137,7 +145,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
           <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>
             <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)} required>
-              <SelectTrigger>
+              <SelectTrigger disabled={submitting}>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
@@ -156,13 +164,14 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
                 variant="ghost"
                 onClick={() => setDeptManagementOpen(true)}
                 className="h-7 text-xs"
+                disabled={submitting}
               >
                 <Settings className="h-3.5 w-3.5 mr-1" />
                 Manage
               </Button>
             </div>
             <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)} required>
-              <SelectTrigger>
+              <SelectTrigger disabled={submitting}>
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
@@ -185,8 +194,15 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-primary hover:opacity-90">
-              Send Invitation
+            <Button type="submit" className="bg-gradient-primary hover:opacity-90" disabled={submitting} aria-busy={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                'Send Invitation'
+              )}
             </Button>
           </DialogFooter>
         </form>

@@ -171,8 +171,8 @@ export default function UserManagement() {
     department: string;
   }) => {
     try {
-      await apiClient.inviteTeamMember(memberData);
-      
+      await apiClient.inviteUser(memberData);
+
       toast({
         title: "Success",
         description: "Invitation sent successfully"
@@ -185,14 +185,14 @@ export default function UserManagement() {
       console.error('Error inviting member:', error);
       
       let errorMessage = "Failed to send invitation";
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string | string[] } }; message?: string };
-        if (axiosError.response?.data?.message) {
-          const msg = axiosError.response.data.message;
-          errorMessage = Array.isArray(msg) ? msg.join(', ') : msg;
-        } else if (axiosError.message) {
-          errorMessage = axiosError.message;
-        }
+      // Our ApiClient normalizes errors to a plain Error with message.
+      // Prefer that message, and override with backend response message if available.
+      if (error instanceof Error && error.message) {
+        errorMessage = error.message;
+      }
+      const responseMessage = (error as any)?.response?.data?.message;
+      if (responseMessage) {
+        errorMessage = Array.isArray(responseMessage) ? responseMessage.join(', ') : responseMessage;
       }
       
       toast({
@@ -200,6 +200,9 @@ export default function UserManagement() {
         description: errorMessage,
         variant: "destructive"
       });
+
+      // Re-throw so the dialog stays open on errors
+      throw new Error(errorMessage);
     }
   };
 
