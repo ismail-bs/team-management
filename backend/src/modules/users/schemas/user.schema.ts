@@ -110,7 +110,6 @@ UserSchema.virtual('initials').get(function () {
 });
 
 // Essential indexes for admin panel queries
-UserSchema.index({ email: 1 }, { unique: true }); // Login
 UserSchema.index({ role: 1 }); // Filter by role (project managers)
 UserSchema.index({ department: 1 }); // Filter by department
 UserSchema.index({ firstName: 'text', lastName: 'text', email: 'text' }); // Search

@@ -36,6 +36,5 @@ export class Department {
 export const DepartmentSchema = SchemaFactory.createForClass(Department);
 
 // Indexes for optimization
-DepartmentSchema.index({ name: 1 });
 DepartmentSchema.index({ isActive: 1 });
 DepartmentSchema.index({ createdBy: 1 });
