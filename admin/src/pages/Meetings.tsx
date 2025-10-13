@@ -507,7 +507,7 @@ export default function Meetings() {
               </Button>
             )}
             
-            {isPast && canCreateMeeting && !meeting.notes && (
+            {isPast && canCreateMeeting && (
               <Button
                 size="sm"
                 variant="outline"
@@ -517,7 +517,7 @@ export default function Meetings() {
                 }}
                 className="border-gray-200 hover:bg-gray-50"
               >
-                Add Notes
+                {meeting.notes || meeting.summary ? 'Edit Notes' : 'Add Notes'}
               </Button>
             )}
             

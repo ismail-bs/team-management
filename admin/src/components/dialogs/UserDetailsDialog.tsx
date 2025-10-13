@@ -14,27 +14,19 @@ import {
   CheckCircle2,
   Clock
 } from "lucide-react";
+import type { User as ApiUser } from "@/lib/api";
 
-interface User {
-  _id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  initials: string;
-  phone?: string;
-  role: string;
-  department?: string;
-  location?: string;
-  status: string;
-  joinDate: string;
+// Align with canonical ApiUser type and allow optional display-only fields
+type User = ApiUser & {
+  fullName?: string;
+  initials?: string;
+  joinDate?: string;
   bio?: string;
-  skills: string[];
-  avatar?: string;
-  tasksCompleted: number;
+  skills?: string[];
+  tasksCompleted?: number;
   lastLogin?: string;
-  createdAt: string;
-}
+  createdAt?: string;
+};
 
 interface UserDetailsDialogProps {
   open: boolean;
@@ -105,12 +97,12 @@ export function UserDetailsDialog({ open, onOpenChange, user }: UserDetailsDialo
               <Avatar className="h-20 w-20">
                 <AvatarImage src={user.avatar} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-2xl">
-                  {user.initials}
+                  {(user.initials || `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`).toUpperCase() || "?"}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex-1">
-                <h3 className="text-xl font-semibold mb-2">{user.fullName}</h3>
+                <h3 className="text-xl font-semibold mb-2">{user.fullName || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}</h3>
                 <div className="flex flex-wrap gap-2">
                   <Badge className={getRoleColor(user.role)}>
                     {getRoleIcon(user.role)}
@@ -177,24 +169,26 @@ export function UserDetailsDialog({ open, onOpenChange, user }: UserDetailsDialo
                       <Briefcase className="h-4 w-4 mt-0.5 text-muted-foreground" />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-muted-foreground">Department</p>
-                        <p className="text-sm">{user.department}</p>
+                        <p className="text-sm">{typeof user.department === 'string' ? user.department : user.department?.name}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {user.joinDate && (
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-muted-foreground">Join Date</p>
+                        <p className="text-sm">{formatDate(user.joinDate)}</p>
                       </div>
                     </div>
                   )}
 
                   <div className="flex items-start gap-3">
-                    <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground">Join Date</p>
-                      <p className="text-sm">{formatDate(user.joinDate)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-muted-foreground">Tasks Completed</p>
-                      <p className="text-sm">{user.tasksCompleted}</p>
+                      <p className="text-sm">{user.tasksCompleted ?? 0}</p>
                     </div>
                   </div>
 

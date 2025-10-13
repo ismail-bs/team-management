@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Plus, Users as UsersIcon, X } from "lucide-react";
+import { CalendarIcon, Plus, Users as UsersIcon, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { apiClient, User } from "@/lib/api";
@@ -29,7 +29,7 @@ interface NewProjectDialogProps {
     teamMembers: string[];
     budget: string;
     dueDate?: Date;
-  }) => void;
+  }) => Promise<void> | void;
 }
 
 export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDialogProps) {
@@ -38,6 +38,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -93,7 +94,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
     return teamMembers.filter(member => selectedTeamMembers.includes(member._id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Client-side validation
@@ -163,19 +164,27 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
       return;
     }
 
-    onSubmit({ ...formData, teamMembers: selectedTeamMembers, dueDate: date });
-    onOpenChange(false);
-    // Reset form
-    setFormData({
-      title: "",
-      description: "",
-      priority: "",
-      status: "",
-      projectManager: "",
-      budget: ""
-    });
-    setSelectedTeamMembers([]);
-    setDate(undefined);
+    try {
+      setSubmitting(true);
+      await Promise.resolve(onSubmit({ ...formData, teamMembers: selectedTeamMembers, dueDate: date }));
+      onOpenChange(false);
+      // Reset form after successful submission
+      setFormData({
+        title: "",
+        description: "",
+        priority: "",
+        status: "",
+        projectManager: "",
+        budget: ""
+      });
+      setSelectedTeamMembers([]);
+      setDate(undefined);
+    } catch (error) {
+      // Keep dialog open; parent handles error toast
+      console.error('Project creation failed:', error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -192,16 +201,17 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
           </DialogTitle>
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Project Title *</Label>
-              <Input
-                id="title"
+          <form onSubmit={handleSubmit} className="space-y-4 px-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Project Title *</Label>
+                <Input
+                  id="title"
                 placeholder="Enter project title"
                 value={formData.title}
                 onChange={(e) => handleInputChange("title", e.target.value)}
                 required
+                disabled={submitting}
               />
             </div>
             <div className="space-y-2">
@@ -209,9 +219,9 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
               <Select 
                 value={formData.projectManager} 
                 onValueChange={(value) => handleInputChange("projectManager", value)}
-                disabled={loading}
+                disabled={loading || submitting}
               >
-                <SelectTrigger>
+                <SelectTrigger disabled={loading || submitting}>
                   <SelectValue placeholder={loading ? "Loading project managers..." : "Select project manager"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -234,6 +244,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
               onChange={(e) => handleInputChange("description", e.target.value)}
               rows={3}
               required
+              disabled={submitting}
             />
           </div>
 
@@ -241,7 +252,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
             <div className="space-y-2">
               <Label htmlFor="priority">Priority *</Label>
               <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
-                <SelectTrigger>
+                <SelectTrigger disabled={submitting}>
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,7 +266,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
             <div className="space-y-2">
               <Label htmlFor="status">Initial Status *</Label>
               <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
-                <SelectTrigger>
+                <SelectTrigger disabled={submitting}>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,6 +283,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                 placeholder="$0"
                 value={formData.budget}
                 onChange={(e) => handleInputChange("budget", e.target.value)}
+                disabled={submitting}
               />
             </div>
           </div>
@@ -286,6 +298,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                     "w-full justify-start text-left font-normal",
                     !date && "text-muted-foreground"
                   )}
+                  disabled={submitting}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {date ? format(date, "PPP") : "Pick a due date"}
@@ -351,11 +364,12 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                       <div
                         key={member._id}
                         className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg cursor-pointer transition-colors"
-                        onClick={() => toggleTeamMember(member._id)}
+                        onClick={() => { if (!submitting) toggleTeamMember(member._id); }}
                       >
                         <Checkbox
                           checked={selectedTeamMembers.includes(member._id)}
                           onCheckedChange={() => toggleTeamMember(member._id)}
+                          disabled={submitting}
                         />
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={member.avatar} alt={member.firstName} />
@@ -372,7 +386,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                           </p>
                         </div>
                         <Badge variant="outline" className="text-xs">
-                          {member.department || 'No Dept'}
+                          {typeof member.department === 'string' ? member.department : 'No Dept'}
                         </Badge>
                       </div>
                     ))
@@ -390,8 +404,15 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90">
-              Create Project
+            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90" disabled={submitting} aria-busy={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Project'
+              )}
             </Button>
           </div>
         </form>

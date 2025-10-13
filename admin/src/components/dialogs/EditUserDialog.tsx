@@ -9,21 +9,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 
-interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
+// Use canonical ApiUser and allow optional editable fields
+type User = ApiUser & {
   phone?: string;
-  role: string;
-  department?: string;
   location?: string;
-  status: string;
   bio?: string;
-  skills: string[];
+  skills?: string[];
   avatar?: string;
-}
+};
 
 interface EditUserDialogProps {
   open: boolean;
@@ -40,7 +35,7 @@ export function EditUserDialog({ open, onOpenChange, user, onUpdate }: EditUserD
     lastName: user.lastName,
     phone: user.phone || "",
     role: user.role,
-    department: user.department || "",
+    department: typeof user.department === 'string' ? user.department : (user.department?._id || ""),
     location: user.location || "",
     status: user.status,
     bio: user.bio || "",
@@ -57,7 +52,7 @@ export function EditUserDialog({ open, onOpenChange, user, onUpdate }: EditUserD
         lastName: user.lastName,
         phone: user.phone || "",
         role: user.role,
-        department: user.department || "",
+        department: typeof user.department === 'string' ? user.department : (user.department?._id || ""),
         location: user.location || "",
         status: user.status,
         bio: user.bio || "",

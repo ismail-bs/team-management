@@ -15,12 +15,20 @@ import {
   PaginationResult,
 } from '../../common/interfaces/base.interface';
 import { Role } from '../../common/enums/role.enum';
+import {
+  Department,
+  DepartmentDocument,
+} from '../departments/schemas/department.schema';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Department.name)
+    private departmentModel: Model<DepartmentDocument>,
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
     const existingUser = await this.userModel.findOne({
@@ -37,7 +45,18 @@ export class UsersService {
       joinDate: new Date(),
     });
 
-    return user.save();
+    const saved = await user.save();
+
+    // If user is assigned to a department, update that department's employee count
+    if (saved.department) {
+      const deptId = saved.department.toString();
+      const count = await this.userModel.countDocuments({ department: deptId });
+      await this.departmentModel.findByIdAndUpdate(deptId, {
+        employeeCount: count,
+      });
+    }
+
+    return saved;
   }
 
   async findAll(
@@ -169,6 +188,8 @@ export class UsersService {
     id: string,
     updateUserDto: UpdateUserDto,
   ): Promise<UserDocument> {
+    // Track previous department to update counts if it changes
+    const prev = await this.userModel.findById(id).select('department').exec();
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 12);
     }
@@ -184,13 +205,47 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    // Recalculate employee counts if department changed
+    const prevDept = prev?.department ? prev.department.toString() : null;
+    const newDept = user.department ? user.department.toString() : null;
+
+    if (prevDept !== newDept) {
+      if (prevDept) {
+        const prevCount = await this.userModel.countDocuments({
+          department: prevDept,
+        });
+        await this.departmentModel.findByIdAndUpdate(prevDept, {
+          employeeCount: prevCount,
+        });
+      }
+      if (newDept) {
+        const newCount = await this.userModel.countDocuments({
+          department: newDept,
+        });
+        await this.departmentModel.findByIdAndUpdate(newDept, {
+          employeeCount: newCount,
+        });
+      }
+    }
+
     return user;
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.userModel.findByIdAndDelete(id).exec();
-    if (!result) {
+    const user = await this.userModel.findById(id).select('department').exec();
+    if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    await this.userModel.findByIdAndDelete(id).exec();
+
+    // Update employee count for the user's former department
+    const deptId = user.department ? user.department.toString() : null;
+    if (deptId) {
+      const count = await this.userModel.countDocuments({ department: deptId });
+      await this.departmentModel.findByIdAndUpdate(deptId, {
+        employeeCount: count,
+      });
     }
   }
 

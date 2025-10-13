@@ -14,7 +14,7 @@ import {
   Users
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,12 +39,8 @@ interface Department {
   isActive: boolean;
 }
 
-interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
+// Use the canonical API User type to avoid mismatches
+type User = ApiUser;
 
 interface DepartmentManagementDialogProps {
   open: boolean;
@@ -94,6 +90,7 @@ export function DepartmentManagementDialog({
   const loadUsers = async () => {
     try {
       const response = await apiClient.getUsers({ limit: 100 });
+      // Response is PaginatedResponse<ApiUser>; assign directly to canonical type
       setUsers(response.data || []);
     } catch (error) {
       console.error('Error loading users:', error);

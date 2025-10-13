@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, X, Loader2 } from "lucide-react";
-import { apiClient, User } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 
 interface ScheduleMeetingDialogProps {
   open: boolean;
@@ -72,7 +72,7 @@ export function ScheduleMeetingDialog({ open, onOpenChange, onSubmit }: Schedule
       const response = await apiClient.getUsers({ limit: 100 });
       const users = response.data || [];
       
-      const mappedMembers = users.map((user: User) => ({
+      const mappedMembers = users.map((user: ApiUser) => ({
         value: user._id,
         label: `${user.firstName} ${user.lastName}`,
       }));

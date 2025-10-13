@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { apiClient, User, Project } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { canDeleteProject } from "@/lib/rbac";
 
 interface EditProjectDialogProps {
   open: boolean;
@@ -150,8 +151,12 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
         description: formData.description,
         priority: formData.priority,
         status: formData.status,
-        progress: progress, // Include progress
       };
+
+      // Only include progress when status allows it AND it changed
+      if (statusesAllowingProgress.includes(formData.status) && progress !== currentProgress) {
+        updatePayload.progress = progress;
+      }
 
       // Only include projectManager if it's a valid MongoDB ObjectId
       if (formData.projectManager && formData.projectManager.length === 24) {
@@ -234,6 +239,12 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  // Permission: who can delete this project
+  const projectManagerId = typeof project.projectManager === 'object'
+    ? project.projectManager._id
+    : (project.projectManager as string | undefined);
+  const canDelete = canDeleteProject(user?.role, projectManagerId, user?._id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -506,6 +517,30 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
                 </div>
               )}
             </div>
+        </div>
+
+          {/* Danger Zone - Delete Project */}
+          <div className="space-y-3 p-4 border border-destructive/50 rounded-lg bg-destructive/5">
+            <Label className="text-destructive font-semibold">Danger Zone</Label>
+            <p className="text-sm text-muted-foreground">
+              Deleting a project will permanently remove it and its data. This action cannot be undone.
+            </p>
+            {canDelete ? (
+              <Button 
+                type="button"
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : 'Delete Project'}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                You don’t have permission to delete this project.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

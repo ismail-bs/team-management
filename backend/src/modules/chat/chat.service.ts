@@ -674,9 +674,9 @@ export class ChatService {
 
     const message = new this.messageModel({
       conversation: new Types.ObjectId(conversationId),
-      sender: null, // null indicates system message
+      // No sender for system messages
       content,
-      messageType: MessageType.TEXT,
+      messageType: MessageType.SYSTEM,
       status: MessageStatus.SENT,
       readBy: [], // System messages start unread
     });

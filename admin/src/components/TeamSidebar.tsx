@@ -164,9 +164,7 @@ export function TeamSidebar() {
       <div className="lg:hidden sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-              <span className="text-xs font-bold text-white">{getInitials()}</span>
-            </div>
+            <img src="/logo-no-background.png" alt="Intrq" className="h-8 w-auto" />
             <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               TeamHub
             </h1>
@@ -200,11 +198,13 @@ export function TeamSidebar() {
       >
         {/* Mobile Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              TeamHub
-            </h1>
-            <p className="text-xs text-muted-foreground">Collaboration made simple</p>
+          <div className="flex items-center gap-2">
+            <img src="/logo-no-background.png" alt="Intrq" className="h-6 w-auto" />
+            <div>
+              <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                TeamHub
+              </h1>
+            </div>
           </div>
           <Button 
             variant="ghost" 
@@ -223,10 +223,14 @@ export function TeamSidebar() {
       <div className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-card border-r border-border z-40">
         {/* Desktop Header */}
         <div className="p-4 border-b border-border shrink-0">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            TeamHub
-          </h1>
-          <p className="text-sm text-muted-foreground">Collaboration made simple</p>
+          <div className="flex items-center gap-3">
+            <img src="/logo-no-background.png" alt="Intrq" className="h-8 w-auto" />
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                TeamHub
+              </h1>
+            </div>
+          </div>
         </div>
 
         <SidebarContent />

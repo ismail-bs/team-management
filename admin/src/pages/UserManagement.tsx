@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { User as ApiUser } from "@/lib/api";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,26 +39,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface User {
-  _id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+type User = ApiUser & {
   fullName: string;
   initials: string;
-  phone?: string;
-  role: string;
-  department?: string;
-  location?: string;
-  status: string;
-  joinDate: string;
-  bio?: string;
-  skills: string[];
-  avatar?: string;
-  tasksCompleted: number;
-  lastLogin?: string;
-  createdAt: string;
-}
+  createdAt?: string;
+};
 
 interface UserStats {
   total: number;
@@ -88,6 +74,9 @@ export default function UserManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const limit = 10;
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [departmentsError, setDepartmentsError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -102,14 +91,28 @@ export default function UserManagement() {
     try {
       const response = await apiClient.getDepartments();
       setDepartments(response);
+      setDepartmentsError(null);
     } catch (error) {
       console.error('Error loading departments:', error);
+      let message = 'Failed to load departments';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          message = axiosError.message;
+        }
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      setDepartmentsError(message);
     }
   };
 
   const loadUsers = async () => {
     try {
       setLoading(true);
+      setUsersError(null);
       
       console.log('🔍 Current state values:', {
         roleFilter,
@@ -139,14 +142,31 @@ export default function UserManagement() {
         usersOnPage: response.data?.length
       });
       
-      setUsers(response.data || []);
+      const mappedUsers: User[] = (response.data || []).map((u: ApiUser) => ({
+        ...u,
+        fullName: `${u.firstName} ${u.lastName}`,
+        initials: `${u.firstName?.[0] ?? ''}${u.lastName?.[0] ?? ''}`.toUpperCase(),
+      }));
+      setUsers(mappedUsers);
       setTotalPages(response.totalPages || 1);
       setTotalUsers(response.total || 0);
     } catch (error) {
       console.error('Error loading users:', error);
+      let message = 'Failed to load users';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          message = axiosError.message;
+        }
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      setUsersError(message);
       toast({
         title: "Error",
-        description: "Failed to load users",
+        description: message,
         variant: "destructive"
       });
     } finally {
@@ -158,8 +178,21 @@ export default function UserManagement() {
     try {
       const response = await apiClient.getUserStats();
       setStats(response);
+      setStatsError(null);
     } catch (error) {
       console.error('Error loading stats:', error);
+      let message = 'Failed to load user stats';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          message = axiosError.message;
+        }
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      setStatsError(message);
     }
   };
 
@@ -190,6 +223,7 @@ export default function UserManagement() {
       if (error instanceof Error && error.message) {
         errorMessage = error.message;
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const responseMessage = (error as any)?.response?.data?.message;
       if (responseMessage) {
         errorMessage = Array.isArray(responseMessage) ? responseMessage.join(', ') : responseMessage;
@@ -308,6 +342,32 @@ export default function UserManagement() {
             Invite Member
           </Button>
         </div>
+
+        {/* Errors Banner */}
+        {(usersError || statsError || departmentsError) && (
+          <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3">
+            {usersError && (
+              <p className="text-sm text-destructive">Users: {usersError}</p>
+            )}
+            {statsError && (
+              <p className="text-sm text-destructive">Stats: {statsError}</p>
+            )}
+            {departmentsError && (
+              <p className="text-sm text-destructive">Departments: {departmentsError}</p>
+            )}
+            <div className="mt-2 flex gap-2">
+              {usersError && (
+                <Button size="sm" variant="outline" onClick={loadUsers}>Retry Users</Button>
+              )}
+              {statsError && (
+                <Button size="sm" variant="outline" onClick={loadStats}>Retry Stats</Button>
+              )}
+              {departmentsError && (
+                <Button size="sm" variant="outline" onClick={loadDepartments}>Retry Departments</Button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         {stats && (

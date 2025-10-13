@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Repeat, Loader2, Clock, Users as UsersIcon, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { apiClient, User } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 
 interface MeetingFormData {
   title: string;
@@ -57,7 +57,7 @@ const generateTimeOptions = () => {
 export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDialogProps) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [teamMembers, setTeamMembers] = useState<ApiUser[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: "",

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -161,7 +162,8 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
 
   const handleRemoveTeamMember = async (memberId: string) => {
     try {
-      if (!project.id) {
+      const projectId = (project as any)._id ?? (project as any).id;
+      if (!projectId) {
         toast({
           title: "Error",
           description: "Project ID is missing",
@@ -170,7 +172,7 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
         return;
       }
 
-      await apiClient.removeProjectTeamMember(project.id, memberId);
+      await apiClient.removeProjectTeamMember(projectId, memberId);
       
       toast({
         title: "Success",
@@ -192,7 +194,8 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
 
   const handleDeleteProject = async () => {
     try {
-      if (!project.id) {
+      const projectId = (project as any)._id ?? (project as any).id;
+      if (!projectId) {
         toast({
           title: "Error",
           description: "Project ID is missing",
@@ -201,11 +204,11 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
         return;
       }
 
-      await apiClient.deleteProject(project.id);
+      await apiClient.deleteProject(projectId);
       
       toast({
         title: "Success",
-        description: "Project archived successfully"
+        description: "Project deleted successfully"
       });
       
       setOpen(false);
@@ -435,37 +438,34 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
           <Separator />
 
           {/* Danger Zone - Delete Project */}
-          {isEditing && (
-            <div className="space-y-3 p-4 border border-destructive/50 rounded-lg bg-destructive/5">
+          <div className="space-y-3 p-4 border border-destructive/50 rounded-lg bg-destructive/5">
               <Label className="text-destructive font-semibold">Danger Zone</Label>
               <p className="text-sm text-muted-foreground">
-                Once you delete a project, it will be archived and can only be restored by an administrator.
+                Deleting a project will permanently remove it and its data. This action cannot be undone.
               </p>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm">
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Archive Project
+                    Delete Project
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will archive the project "{project.title}". The project and all its data will be preserved but marked as inactive.
-                      You can restore it later if needed.
+                      This will permanently delete the project "{project.title}" and all its related data. Please confirm you want to proceed.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive hover:bg-destructive/90">
-                      Archive Project
+                      Delete Project
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-          )}
 
           {/* Action Buttons */}
           {isEditing && (

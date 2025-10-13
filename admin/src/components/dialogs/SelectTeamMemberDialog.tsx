@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { apiClient } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface TeamMember {
@@ -54,6 +54,7 @@ export function SelectTeamMemberDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -64,29 +65,45 @@ export function SelectTeamMemberDialog({
   const loadTeamMembers = async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const response = await apiClient.getUsers({ limit: 100 });
-      const users = response.data || [];
+      const users: ApiUser[] = response.data || [];
       
       // Filter out current user - you can't DM yourself!
       const otherUsers = users.filter(user => user._id !== currentUser?._id);
       
-      const mappedMembers: TeamMember[] = otherUsers.map(user => ({
-        id: user._id,
-        name: `${user.firstName} ${user.lastName}`,
-        status: user.status === 'active' ? 'online' : 'offline',
-        role: user.role?.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Member',
-        // Ensure department is a string; backend may return an object
-        department: typeof user.department === 'object' && user.department !== null
-          ? (user.department.name || 'General')
-          : (user.department || 'General'),
-        avatar: user.avatar,
-        initials: `${user.firstName[0]}${user.lastName[0]}`.toUpperCase(),
-      }));
+      const mappedMembers: TeamMember[] = otherUsers.map(user => {
+        const department: string = (typeof user.department === 'object' && user.department !== null)
+          ? (user.department.name ?? 'General')
+          : (user.department ?? 'General');
+
+        return {
+          id: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          status: user.status === 'active' ? 'online' : 'offline',
+          role: user.role?.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Member',
+          department,
+          avatar: user.avatar,
+          initials: `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase(),
+        };
+      });
       
       setTeamMembers(mappedMembers);
     } catch (error) {
       console.error('Error loading team members:', error);
       setTeamMembers([]);
+      let message = 'Failed to load team members';
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string } }; message?: string };
+        if (axiosError.response?.data?.message) {
+          message = axiosError.response.data.message;
+        } else if (axiosError.message) {
+          message = axiosError.message;
+        }
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -116,6 +133,14 @@ export function SelectTeamMemberDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {errorMessage && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3">
+              <p className="text-sm text-destructive">{errorMessage}</p>
+              <div className="mt-2">
+                <Button size="sm" variant="outline" onClick={loadTeamMembers}>Retry</Button>
+              </div>
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

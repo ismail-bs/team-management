@@ -245,7 +245,7 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
                 Edit Meeting
               </Button>
             )}
-            {isPast && canEdit && !meeting.notes && onAddNotes && (
+            {isPast && canEdit && onAddNotes && (
               <Button 
                 onClick={() => {
                   onAddNotes();
@@ -254,7 +254,7 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Add Notes
+                {meeting.notes || meeting.summary ? 'Edit Notes' : 'Add Notes'}
               </Button>
             )}
           </div>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Share2, Loader2 } from "lucide-react";
-import { apiClient, User } from "@/lib/api";
+import { apiClient, User as ApiUser } from "@/lib/api";
 import { toast } from "sonner";
 
 interface ShareDocumentDialogProps {
@@ -24,7 +24,7 @@ export function ShareDocumentDialog({
   currentlySharedWith,
   onShare 
 }: ShareDocumentDialogProps) {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);

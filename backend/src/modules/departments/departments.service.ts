@@ -60,12 +60,31 @@ export class DepartmentsService {
   }
 
   async findAll(): Promise<DepartmentDocument[]> {
-    return this.departmentModel
+    const departments = await this.departmentModel
       .find({ isActive: true })
       .populate('head', 'firstName lastName email avatar')
       .populate('createdBy', 'firstName lastName')
       .sort({ name: 1 })
       .exec();
+
+    // Ensure employeeCount is up to date for each department
+    await Promise.all(
+      departments.map(async (dept) => {
+        const count = await this.userModel.countDocuments({
+          department: dept._id.toString(),
+        });
+
+        if (dept.employeeCount !== count) {
+          await this.departmentModel.findByIdAndUpdate(dept._id, {
+            employeeCount: count,
+          });
+          // Reflect the updated count in the response
+          (dept as any).employeeCount = count;
+        }
+      }),
+    );
+
+    return departments;
   }
 
   async findById(id: string): Promise<DepartmentDocument> {
@@ -81,6 +100,15 @@ export class DepartmentsService {
 
     if (!department) {
       throw new NotFoundException('Department not found');
+    }
+
+    // Update and reflect accurate employee count when fetching a single department
+    const count = await this.userModel.countDocuments({ department: id });
+    if (department.employeeCount !== count) {
+      await this.departmentModel.findByIdAndUpdate(id, {
+        employeeCount: count,
+      });
+      (department as any).employeeCount = count;
     }
 
     return department;

@@ -39,8 +39,18 @@ export class Message {
   })
   messageType: MessageType;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  sender: Types.ObjectId;
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    // Sender is required for user-originated messages, optional for system/notification
+    required: function (this: any) {
+      return (
+        this.messageType !== MessageType.SYSTEM &&
+        this.messageType !== MessageType.NOTIFICATION
+      );
+    },
+  })
+  sender?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Conversation', required: true })
   conversation: Types.ObjectId;

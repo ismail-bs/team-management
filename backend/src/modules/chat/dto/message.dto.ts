@@ -263,8 +263,10 @@ export class MessageResponseDto {
   @ApiProperty({ enum: MessageType, description: 'Message type' })
   type: MessageType;
 
-  @ApiProperty({ description: 'Sender details' })
-  sender: {
+  @ApiPropertyOptional({
+    description: 'Sender details (omitted for system messages)',
+  })
+  sender?: {
     id: string;
     name: string;
     email: string;
