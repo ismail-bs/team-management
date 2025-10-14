@@ -10,6 +10,8 @@ import {
   UseGuards,
   Request,
   Logger,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,6 +20,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum.js';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './gateways/chat.gateway';
 import {
@@ -248,7 +253,20 @@ export class ChatController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    await this.chatService.deleteMessage(id, req.user.sub);
+    const deleted = await this.chatService.deleteMessage(id, req.user.sub);
+
+    // Emit WebSocket event to conversation room so clients can update UI
+    const conversationId =
+      typeof deleted.conversation === 'string'
+        ? deleted.conversation
+        : deleted.conversation?.toString?.();
+    if (conversationId) {
+      this.chatGateway.server
+        .to(`conversation:${conversationId}`)
+        // Emit just the ID to match frontend handler signature
+        .emit('message:deleted', id);
+    }
+
     return { message: 'Message deleted successfully' };
   }
 
@@ -278,5 +296,48 @@ export class ChatController {
       conversationId,
     );
     return { unreadCount: count };
+  }
+
+  @Post('conversations/:id/read')
+  @ApiOperation({
+    summary:
+      'Mark all unread messages in a conversation as read for current user',
+  })
+  @ApiResponse({ status: 200, description: 'Conversation marked as read' })
+  async markConversationAsRead(
+    @Param('id') conversationId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const { updatedCount } = await this.chatService.markConversationAsRead(
+      conversationId,
+      req.user.sub,
+    );
+    return { updatedCount };
+  }
+
+  @Delete('conversations/:id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete a conversation (Admin only)' })
+  @ApiResponse({
+    status: 204,
+    description: 'Conversation deleted successfully',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async deleteConversation(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<void> {
+    await this.chatService.deleteConversation(id, req.user.sub);
+
+    // Notify participants via WebSocket that conversation was deleted
+    this.chatGateway.server
+      .to(`conversation:${id}`)
+      .emit('conversation:deleted', id);
   }
 }

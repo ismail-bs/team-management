@@ -90,7 +90,8 @@ export default function ProgressTracker() {
         projectManager: projectData.projectManager,
         teamMembers: projectData.teamMembers || [],
         startDate: new Date().toISOString(),
-        endDate: projectData.dueDate?.toISOString(),
+        // Use deadline to align with backend overdue logic
+        deadline: projectData.dueDate?.toISOString(),
         budget: projectData.budget ? parseFloat(projectData.budget) : undefined,
       });
       
@@ -358,7 +359,12 @@ export default function ProgressTracker() {
                     project.status === 'completed' ? 'completed' :
                     project.status === 'on-hold' ? 'paused' : 'planning'
                   }
-                  dueDate={project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date'}
+                  // Prefer deadline display; fallback to endDate
+                  dueDate={
+                    project.deadline
+                      ? new Date(project.deadline).toLocaleDateString()
+                      : (project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date')
+                  }
                   teamMembers={project.teamMembers.map(m => ({
                     id: m._id,
                     name: `${m.firstName} ${m.lastName}`

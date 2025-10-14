@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChat } from "@/contexts/ChatContext";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
@@ -42,6 +43,7 @@ export function TeamSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { totalUnread } = useChat();
 
   // Close mobile menu when route changes
   useEffect(() => {
@@ -115,7 +117,12 @@ export function TeamSidebar() {
                 active && "text-white",
                 !active && "text-muted-foreground group-hover:text-foreground"
               )} />
-              <span className="truncate">{item.name}</span>
+              <span className="truncate flex-1">{item.name}</span>
+              {item.name === 'Team Chat' && totalUnread > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5">
+                  {totalUnread}
+                </span>
+              )}
             </NavLink>
           );
         })}

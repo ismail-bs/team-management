@@ -438,6 +438,7 @@ class ApiClient {
     priority?: string;
     startDate: string;
     endDate?: string;
+    deadline?: string;
     projectManager: string;
     teamMembers?: string[];
     budget?: number;
@@ -742,7 +743,10 @@ class ApiClient {
   }): Promise<Conversation> {
     const payload: Record<string, unknown> = {
       type: conversationData.type,
-      participants: conversationData.participants,
+      // Sanitize participants to avoid sending null/undefined values
+      participants: Array.isArray(conversationData.participants)
+        ? conversationData.participants.filter(Boolean)
+        : [],
     };
     
     // Use title directly
@@ -761,6 +765,10 @@ class ApiClient {
   async updateConversation(conversationId: string, conversationData: Partial<Conversation>): Promise<Conversation> {
     const response = await this.client.patch(`/chat/conversations/${conversationId}`, conversationData);
     return response.data;
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    await this.client.delete(`/chat/conversations/${conversationId}`);
   }
 
   async addConversationParticipant(conversationId: string, userId: string): Promise<Conversation> {
@@ -837,7 +845,28 @@ class ApiClient {
 
   async getUnreadCount(conversationId: string): Promise<{ count: number }> {
     const response = await this.client.get(`/chat/conversations/${conversationId}/unread-count`);
-    return response.data;
+    const data: unknown = response.data;
+    let count = 0;
+    if (typeof data === 'object' && data !== null) {
+      if ('count' in data && typeof (data as { count?: unknown }).count === 'number') {
+        count = (data as { count: number }).count;
+      } else if ('unreadCount' in data && typeof (data as { unreadCount?: unknown }).unreadCount === 'number') {
+        count = (data as { unreadCount: number }).unreadCount;
+      }
+    }
+    return { count };
+  }
+
+  async markConversationAsRead(conversationId: string): Promise<{ updatedCount: number }> {
+    const response = await this.client.post(`/chat/conversations/${conversationId}/read`);
+    const data: unknown = response.data;
+    let updatedCount = 0;
+    if (typeof data === 'object' && data !== null) {
+      if ('updatedCount' in data && typeof (data as { updatedCount?: unknown }).updatedCount === 'number') {
+        updatedCount = (data as { updatedCount: number }).updatedCount;
+      }
+    }
+    return { updatedCount };
   }
 
   // Additional missing endpoints

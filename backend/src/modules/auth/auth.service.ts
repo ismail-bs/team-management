@@ -293,14 +293,28 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = { sub: userId, email, role };
 
+    const resolveExpiresIn = (
+      value?: string,
+    ): import('jsonwebtoken').SignOptions['expiresIn'] | undefined => {
+      if (!value) return undefined;
+      const n = Number(value);
+      return Number.isFinite(n)
+        ? n
+        : (value as unknown as import('jsonwebtoken').SignOptions['expiresIn']);
+    };
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('jwt.secret'),
-        expiresIn: this.configService.get<string>('jwt.expiresIn'),
+        expiresIn: resolveExpiresIn(
+          this.configService.get<string>('jwt.expiresIn'),
+        ),
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('jwt.refreshSecret'),
-        expiresIn: this.configService.get<string>('jwt.refreshExpiresIn'),
+        expiresIn: resolveExpiresIn(
+          this.configService.get<string>('jwt.refreshExpiresIn'),
+        ),
       }),
     ]);
 

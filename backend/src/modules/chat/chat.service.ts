@@ -56,10 +56,11 @@ export class ChatService {
     createConversationDto: CreateConversationDto,
     userId: string,
   ): Promise<ConversationDocument> {
-    // Ensure creator is included in participants
-    const participants = Array.from(
-      new Set([...createConversationDto.participants, userId]),
-    );
+    // Ensure creator is included; handle optional/empty participants
+    const incoming = Array.isArray(createConversationDto.participants)
+      ? createConversationDto.participants
+      : [];
+    const participants = Array.from(new Set([...incoming, userId]));
 
     // For direct conversations, ensure only 2 participants
     if (
@@ -516,7 +517,10 @@ export class ChatService {
     return message.save();
   }
 
-  async deleteMessage(messageId: string, userId: string): Promise<void> {
+  async deleteMessage(
+    messageId: string,
+    userId: string,
+  ): Promise<MessageDocument> {
     const message = await this.messageModel.findOne({
       _id: messageId,
       sender: userId,
@@ -528,7 +532,52 @@ export class ChatService {
 
     message.isDeleted = true;
     message.deletedAt = new Date();
-    await message.save();
+    const saved = await message.save();
+    return saved;
+  }
+
+  async deleteConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    // Only admin can permanently delete conversations
+    const requestingUser = await this.userModel
+      .findById(userId)
+      .select('role')
+      .exec();
+
+    if (!requestingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (requestingUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admin can delete conversations');
+    }
+
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .exec();
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Restrict deletion to group/project chats per requirements
+    if (conversation.type === ConversationType.DIRECT) {
+      throw new BadRequestException(
+        'Direct conversations cannot be permanently deleted',
+      );
+    }
+
+    // Delete all messages associated with the conversation
+    await this.messageModel.deleteMany({ conversation: conversation._id });
+
+    // Delete the conversation itself
+    await this.conversationModel.findByIdAndDelete(conversation._id);
+
+    this.logger.log(
+      `Conversation ${conversationId} and its messages deleted by admin ${userId}`,
+    );
   }
 
   async addReaction(
@@ -614,6 +663,52 @@ export class ChatService {
       });
       await message.save();
     }
+  }
+
+  /**
+   * Mark all unread messages in a conversation as read for the user
+   * Only marks messages not sent by the user, not deleted, and not already read
+   */
+  async markConversationAsRead(
+    conversationId: string,
+    userId: string,
+  ): Promise<{ updatedCount: number }> {
+    // Verify user has access to conversation
+    const conversation = await this.conversationModel.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    // Bulk mark unread messages as read for this user
+    const res = await this.messageModel.updateMany(
+      {
+        conversation: conversationId,
+        sender: { $ne: userId },
+        isDeleted: { $ne: true },
+        'readBy.user': { $ne: userId },
+      },
+      {
+        $push: {
+          readBy: {
+            user: new Types.ObjectId(userId),
+            readAt: new Date(),
+          },
+        },
+      },
+    );
+
+    // Mongoose updateMany returns { acknowledged, matchedCount, modifiedCount }
+    const updatedCount =
+      (
+        res as unknown as {
+          modifiedCount?: number;
+        }
+      ).modifiedCount ?? 0;
+    return { updatedCount };
   }
 
   async getUnreadCount(

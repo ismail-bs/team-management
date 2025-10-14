@@ -49,15 +49,16 @@ export class CreateConversationDto {
   @IsEnum(ConversationType)
   type: ConversationType;
 
-  @ApiProperty({
-    description: 'Array of participant user IDs',
+  @ApiPropertyOptional({
+    description: 'Array of participant user IDs (optional; creator auto-added)',
     type: [String],
     example: ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012'],
   })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
+  @Transform(({ value }) => (Array.isArray(value) ? value.filter(Boolean) : []))
   @IsMongoId({ each: true })
-  participants: string[];
+  participants?: string[];
 
   @ApiPropertyOptional({
     description: 'Associated project ID',

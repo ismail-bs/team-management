@@ -17,12 +17,21 @@ import { ChatModule } from '../chat/chat.module';
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
-        signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn'),
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const rawExpires = configService.get<string>('jwt.expiresIn');
+        const expiresIn = rawExpires
+          ? Number.isFinite(Number(rawExpires))
+            ? Number(rawExpires)
+            : (rawExpires as unknown as import('jsonwebtoken').SignOptions['expiresIn'])
+          : undefined;
+
+        return {
+          secret: configService.get<string>('jwt.secret'),
+          signOptions: {
+            expiresIn,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],

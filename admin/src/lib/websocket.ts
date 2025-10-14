@@ -10,21 +10,24 @@ export interface SocketEvents {
   connect: () => void;
   disconnect: () => void;
   error: (error: Error) => void;
-  
-  // Message events
-  'message:new': (message: Message) => void;
-  'message:updated': (message: Message) => void;
+
+  // Message events (match backend payloads)
+  'message:new': (data: { message: Message }) => void;
+  'message:updated': (data: { message: Message }) => void;
   'message:deleted': (messageId: string) => void;
-  
+
   // Conversation events
   'conversation:new': (conversation: Conversation) => void;
-  'conversation:updated': (conversation: Conversation) => void;
+  'conversation:updated': (data: { conversation: Conversation }) => void;
   'conversation:deleted': (conversationId: string) => void;
-  
-  // User events
-  'user:typing': (data: { userId: string; conversationId: string; isTyping: boolean }) => void;
-  'user:online': (userId: string) => void;
-  'user:offline': (userId: string) => void;
+  'conversation:participant_added': (data: { conversation: Conversation; addedUserId: string }) => void;
+  'conversation:participant_removed': (data: { conversation: Conversation; removedUserId: string }) => void;
+
+  // Typing and presence events
+  'typing:start': (data: { conversationId: string; userId: string; user?: unknown }) => void;
+  'typing:stop': (data: { conversationId: string; userId: string }) => void;
+  'user:online': (data: { userId: string; user?: unknown }) => void;
+  'user:offline': (data: { userId: string }) => void;
 }
 
 /**
@@ -230,7 +233,13 @@ class WebSocketClient {
     project?: string;
   }) {
     if (this.socket?.connected) {
-      this.socket.emit('conversation:create', data);
+      const clean = {
+        ...data,
+        participants: Array.isArray(data.participants)
+          ? data.participants.filter(Boolean)
+          : [],
+      };
+      this.socket.emit('conversation:create', clean);
     }
   }
 

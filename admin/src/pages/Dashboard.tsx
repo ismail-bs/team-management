@@ -38,8 +38,8 @@ export default function Dashboard() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [stats, setStats] = useState({
     activeProjects: 0,
-    completedTasks: 0,
-    pendingTasks: 0,
+    completedProjects: 0,
+    overdueProjects: 0,
     teamMembers: 0,
   });
 
@@ -49,28 +49,43 @@ export default function Dashboard() {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [projectsRes, meetingsRes, tasksRes, usersRes] = await Promise.all([
+      const [projectsRes, meetingsRes, usersRes, projectStatsRes] = await Promise.all([
         apiClient.getProjects({ limit: 6 }).catch(() => ({ data: [], total: 0 })),
         apiClient.getUpcomingMeetings().catch(() => []),
-        apiClient.getTasks({ limit: 100 }).catch(() => ({ data: [] })),
         apiClient.getUsers({ limit: 100 }).catch(() => ({ data: [] })),
+        apiClient.getProjectStats().catch(() => null),
       ]);
 
       const projectData = projectsRes.data || [];
       const meetingData = Array.isArray(meetingsRes) ? meetingsRes : [];
-      const taskData = tasksRes.data || [];
       const userData = usersRes.data || [];
 
       setProjects(projectData);
       setMeetings(meetingData.slice(0, 5));
 
-      // Calculate stats
-      setStats({
-        activeProjects: projectData.filter(p => p.status === 'in-progress').length,
-        completedTasks: taskData.filter(t => t.status === 'done' || t.status === 'closed').length,
-        pendingTasks: taskData.filter(t => t.status === 'open' || t.status === 'in-progress').length,
-        teamMembers: userData.length,
-      });
+      // Calculate project-based stats (no tasks)
+      const projectStats = projectStatsRes;
+      if (projectStats) {
+        setStats({
+          activeProjects: projectStats.active || 0,
+          completedProjects: projectStats.completed || 0,
+          overdueProjects: projectStats.overdue || 0,
+          teamMembers: userData.length,
+        });
+      } else {
+        // Fallback to local counts if stats endpoint fails
+        const now = new Date();
+        setStats({
+          activeProjects: projectData.filter(p => p.status === 'in-progress' || p.status === 'not-started').length,
+          completedProjects: projectData.filter(p => p.status === 'completed').length,
+          // Prefer deadline over endDate for overdue calculation
+          overdueProjects: projectData.filter(p => {
+            const due = p.deadline ? new Date(p.deadline) : (p.endDate ? new Date(p.endDate) : null);
+            return !!due && due < now && p.status !== 'completed' && p.status !== 'cancelled';
+          }).length,
+          teamMembers: userData.length,
+        });
+      }
     } catch (error) {
       console.error('Dashboard load error:', error);
       
@@ -100,6 +115,8 @@ export default function Dashboard() {
     }
   }, [user]);
 
+  // No task system: keep meetings global and stats from project metrics
+
   // Handle new project creation
   const handleNewProject = async (projectData: {
     title: string;
@@ -120,7 +137,8 @@ export default function Dashboard() {
         projectManager: projectData.projectManager,
         teamMembers: projectData.teamMembers || [],
         startDate: new Date().toISOString(),
-        endDate: projectData.dueDate?.toISOString(),
+        // Align with backend overdue logic which uses `deadline`
+        deadline: projectData.dueDate?.toISOString(),
         budget: projectData.budget ? parseFloat(projectData.budget) : undefined,
       });
       
@@ -218,9 +236,9 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Completed Tasks</p>
+                <p className="text-sm font-medium text-muted-foreground">Completed Projects</p>
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  {stats.completedTasks}
+                  {stats.completedProjects}
                 </p>
               </div>
             </CardContent>
@@ -234,9 +252,9 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Pending Tasks</p>
+                <p className="text-sm font-medium text-muted-foreground">Overdue Projects</p>
                 <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                  {stats.pendingTasks}
+                  {stats.overdueProjects}
                 </p>
               </div>
             </CardContent>
@@ -296,7 +314,12 @@ export default function Dashboard() {
                         project.status === 'completed' ? 'completed' :
                         project.status === 'on-hold' ? 'paused' : 'planning'
                       }
-                      dueDate={project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date'}
+                      // Prefer deadline display; fallback to endDate
+                      dueDate={
+                        project.deadline
+                          ? new Date(project.deadline).toLocaleDateString()
+                          : (project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date')
+                      }
                       teamMembers={project.teamMembers.map(m => ({
                         id: m._id,
                         name: `${m.firstName} ${m.lastName}`

@@ -4,17 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Send, Plus, Hash, Users, Loader2, Info, Wifi, WifiOff } from "lucide-react";
+import { Send, Plus, Hash, Users, Loader2, Info, Trash2 } from "lucide-react";
 import { AddChannelDialog } from "@/components/dialogs/AddChannelDialog";
 import { SelectTeamMemberDialog } from "@/components/dialogs/SelectTeamMemberDialog";
 import { GroupInfoDialog } from "@/components/dialogs/GroupInfoDialog";
 import { toast } from "@/hooks/use-toast";
 import { apiClient, Conversation, Message } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChat } from "@/contexts/ChatContext";
 import { websocketClient } from "@/lib/websocket";
 
 export default function TeamChat() {
   const { user } = useAuth();
+  const { setActiveConversationId, unreadByConversation, wsConnected } = useChat();
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -24,23 +26,127 @@ export default function TeamChat() {
   const [addChannelOpen, setAddChannelOpen] = useState(false);
   const [selectMemberOpen, setSelectMemberOpen] = useState(false);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
-  
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation) return;
+    if (selectedConversation.type === 'direct') return;
+    const ok = window.confirm('Delete this conversation and all messages? This cannot be undone.');
+    if (!ok) return;
+    try {
+      await apiClient.deleteConversation(selectedConversation._id);
+      const deletedId = selectedConversation._id;
+      websocketClient.leaveConversation(deletedId);
+      setSelectedConversation(null);
+      selectedConversationRef.current = null;
+      setMessages([]);
+      setConversations(prev => prev.filter(c => c._id !== deletedId));
+      toast({ title: 'Conversation deleted', description: 'This chat and its messages have been removed.' });
+    } catch (err) {
+      console.error('Failed to delete conversation', err);
+      toast({ title: 'Delete failed', description: 'Could not delete conversation', variant: 'destructive' });
+    }
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasConnectedRef = useRef(false);
   const selectedConversationRef = useRef<Conversation | null>(null);
 
-  // Initialize WebSocket connection
+  // Register WebSocket event handlers once
   useEffect(() => {
-    if (user && !hasConnectedRef.current) {
-      hasConnectedRef.current = true;
-      initializeWebSocket();
-    }
+    if (!user) return;
+
+    // Listen for new messages
+    const onMessageNew = (data: { message?: Message }) => {
+      const newMessage = data.message;
+      if (!newMessage) return;
+
+      const senderId = typeof newMessage.sender === 'string'
+        ? newMessage.sender
+        : newMessage.sender?._id;
+      const isOwnMessage = senderId === user?._id;
+
+      if (isOwnMessage) {
+        updateConversationWithNewMessage(newMessage);
+        return;
+      }
+
+      if (selectedConversationRef.current && newMessage.conversation === selectedConversationRef.current._id) {
+        setMessages(prev => {
+          const exists = prev.some(m => m._id === newMessage._id);
+          if (exists) return prev;
+          return [...prev, newMessage];
+        });
+        apiClient.markMessageAsRead(newMessage._id).catch(() => {});
+      }
+
+      updateConversationWithNewMessage(newMessage);
+    };
+
+    const onMessageUpdated = (data: { message?: Message }) => {
+      const updated = data.message;
+      if (!updated) return;
+      setMessages(prev => prev.map(m => (m._id === updated._id ? { ...m, ...updated } : m)));
+      updateConversationWithNewMessage(updated);
+    };
+
+    const onUserOnline = (data: { userId?: string }) => {
+      console.log('👤 User online:', data.userId);
+    };
+
+    const onUserOffline = (data: { userId?: string }) => {
+      console.log('👤 User offline:', data.userId);
+    };
+
+    const onParticipantAdded = (data: { conversation?: unknown; addedUserId?: string }) => {
+      console.log('👥 Participant added event:', data);
+      toast({ title: "New Member Added", description: "A new member has been added to the conversation" });
+      loadConversations();
+    };
+
+    const onParticipantRemoved = (data: { conversation?: unknown; removedUserId?: string }) => {
+      console.log('👥 Participant removed event:', data);
+      if (data.removedUserId === user?._id) {
+        setSelectedConversation(null);
+        setMessages([]);
+        toast({ title: "Removed from conversation", description: "You have been removed from this conversation", variant: "destructive" });
+      } else {
+        toast({ title: "Member Removed", description: "A member has been removed from the conversation" });
+      }
+      loadConversations();
+    };
+
+    const onConversationUpdated = (data: { conversation?: Conversation }) => {
+      const updatedConv = data.conversation;
+      if (!updatedConv) return;
+      setConversations(prev => prev.map(conv => (conv._id === updatedConv._id ? updatedConv : conv)));
+      if (selectedConversationRef.current?._id === updatedConv._id) {
+        setSelectedConversation(updatedConv);
+        selectedConversationRef.current = updatedConv;
+      }
+    };
+
+    const onMessageDeleted = (deletedId: string) => {
+      setMessages(prev => prev.filter(m => m._id !== deletedId));
+    };
+
+    websocketClient.on('message:new', onMessageNew);
+    websocketClient.on('message:updated', onMessageUpdated);
+    websocketClient.on('user:online', onUserOnline);
+    websocketClient.on('user:offline', onUserOffline);
+    websocketClient.on('conversation:participant_added', onParticipantAdded);
+    websocketClient.on('conversation:participant_removed', onParticipantRemoved);
+    websocketClient.on('conversation:updated', onConversationUpdated);
+    websocketClient.on('message:deleted', onMessageDeleted);
 
     return () => {
-      // Cleanup on unmount
-      websocketClient.disconnect();
-      hasConnectedRef.current = false;
+      websocketClient.off('message:new', onMessageNew);
+      websocketClient.off('message:updated', onMessageUpdated);
+      websocketClient.off('user:online', onUserOnline);
+      websocketClient.off('user:offline', onUserOffline);
+      websocketClient.off('conversation:participant_added', onParticipantAdded);
+      websocketClient.off('conversation:participant_removed', onParticipantRemoved);
+      websocketClient.off('conversation:updated', onConversationUpdated);
+      websocketClient.off('message:deleted', onMessageDeleted);
+      setActiveConversationId(null);
+      const active = selectedConversationRef.current?._id;
+      if (active) websocketClient.leaveConversation(active);
     };
   }, [user]);
 
@@ -56,151 +162,25 @@ export default function TeamChat() {
     scrollToBottom();
   }, [messages]);
 
-  // WebSocket setup
-  const initializeWebSocket = async () => {
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        console.error('No auth token found');
-        return;
-      }
-
-      await websocketClient.connect(token);
-      console.log('✅ WebSocket connected successfully');
-      setWsConnected(true);
-
-      // Listen for new messages
-      websocketClient.on('message:new', (data: { message?: Message }) => {
-        console.log('🔔 WebSocket message:new event received:', data);
-        
-        const newMessage = data.message;
-        if (!newMessage) {
-          console.error('❌ No message in WebSocket event data');
-          return;
-        }
-        
-        console.log('📨 Processed message:', newMessage);
-        console.log('👤 Message sender:', newMessage.sender?._id);
-        console.log('👤 Current user:', user?._id);
-        console.log('📂 Current conversation (ref):', selectedConversationRef.current?._id);
-        console.log('📂 Message conversation:', newMessage.conversation);
-
-        // Check if this message is from the current user (skip if it is - we already have optimistic update)
-        const senderId = typeof newMessage.sender === 'string'
-          ? newMessage.sender
-          : newMessage.sender?._id;
-        const isOwnMessage = senderId === user?._id;
-        
-        if (isOwnMessage) {
-          console.log('⏭️ Skipping own message (already added via optimistic update)');
-          // Still update conversation list timestamp
-          updateConversationWithNewMessage(newMessage);
-          return;
-        }
-
-        // Add to messages if it's for the current conversation
-        if (selectedConversationRef.current && newMessage.conversation === selectedConversationRef.current._id) {
-          console.log('✅ Adding message to current conversation');
-          setMessages(prev => {
-            const exists = prev.some(m => m._id === newMessage._id);
-            if (exists) {
-              console.log('⚠️ Message already exists, skipping');
-              return prev;
-            }
-            console.log('✅ Message added to state');
-            return [...prev, newMessage];
-          });
-        } else {
-          console.log('ℹ️ Message for different conversation, updating sidebar only');
-        }
-
-        // Update conversation list
-        updateConversationWithNewMessage(newMessage);
-      });
-
-      // Listen for user online/offline
-      websocketClient.on('user:online', (data: { userId?: string }) => {
-        console.log('👤 User online:', data.userId);
-      });
-
-      websocketClient.on('user:offline', (data: { userId?: string }) => {
-        console.log('👤 User offline:', data.userId);
-      });
-
-      // Listen for participant changes
-      websocketClient.on('conversation:participant_added', (data: { conversation?: unknown; addedUserId?: string }) => {
-        console.log('👥 Participant added event:', data);
-        toast({
-          title: "New Member Added",
-          description: "A new member has been added to the conversation",
-        });
-        loadConversations(); // Refresh conversations list
-      });
-
-      websocketClient.on('conversation:participant_removed', (data: { conversation?: unknown; removedUserId?: string }) => {
-        console.log('👥 Participant removed event:', data);
-        
-        // If current user was removed, clear selection
-        if (data.removedUserId === user?._id) {
-          setSelectedConversation(null);
-          setMessages([]);
-          toast({
-            title: "Removed from conversation",
-            description: "You have been removed from this conversation",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Member Removed",
-            description: "A member has been removed from the conversation",
-          });
-        }
-        
-        loadConversations(); // Refresh conversations list
-      });
-
-      // Listen for conversation updates (name, description, etc.)
-      websocketClient.on('conversation:updated', (data: { conversation?: Conversation }) => {
-        console.log('🔄 Conversation updated event:', data);
-        
-        const updatedConv = data.conversation;
-        if (!updatedConv) return;
-
-        // Update conversations list
-        setConversations(prev => {
-          return prev.map(conv => 
-            conv._id === updatedConv._id 
-              ? updatedConv
-              : conv
-          );
-        });
-
-        // Update selected conversation if it's the one that changed
-        if (selectedConversation?._id === updatedConv._id) {
-          setSelectedConversation(updatedConv);
-        }
-
-        // Note: Not showing toast here as the user who made the change
-        // already gets a success toast from the API call
-      });
-
-    } catch (error) {
-      console.error('❌ WebSocket connection failed:', error);
-      toast({
-        title: "Connection Error",
-        description: "Real-time chat unavailable. Messages will still work.",
-        variant: "destructive",
-      });
-    }
-  };
+  // WebSocket setup moved to global ChatContext
 
   const updateConversationWithNewMessage = (newMessage: Message) => {
     setConversations(prev => {
-      const updated = prev.map(conv => 
-        conv._id === newMessage.conversation
-          ? { ...conv, lastMessage: newMessage, updatedAt: newMessage.createdAt }
-          : conv
-      );
+      const senderId = typeof newMessage.sender === 'string' ? newMessage.sender : newMessage.sender?._id;
+      const isOwnMessage = senderId === user?._id;
+
+      const updated = prev.map(conv => {
+        if (conv._id === newMessage.conversation) {
+          const shouldIncrementUnread = !isOwnMessage && (!selectedConversationRef.current || selectedConversationRef.current._id !== conv._id);
+          return {
+            ...conv,
+            lastMessage: newMessage,
+            updatedAt: newMessage.createdAt,
+            unreadCount: shouldIncrementUnread ? (conv.unreadCount || 0) + 1 : (conv.unreadCount || 0),
+          };
+        }
+        return conv;
+      });
 
       // Re-sort by most recent
       return updated.sort((a, b) => {
@@ -215,19 +195,32 @@ export default function TeamChat() {
     try {
       setLoading(true);
       const convs = await apiClient.getConversations();
-      
+
       // Sort by most recent
       const sortedConvs = (convs || []).sort((a, b) => {
         const timeA = new Date(a.updatedAt || a.createdAt).getTime();
         const timeB = new Date(b.updatedAt || b.createdAt).getTime();
         return timeB - timeA;
       });
-      
-      setConversations(sortedConvs);
-      
+
+      // Fetch unread counts per conversation and attach
+      const convsWithUnread = await Promise.all(
+        sortedConvs.map(async (c) => {
+          try {
+            const { count } = await apiClient.getUnreadCount(c._id);
+            return { ...c, unreadCount: count } as Conversation;
+          } catch (err) {
+            console.error('Failed to get unread count for conversation', c._id, err);
+            return { ...c, unreadCount: c.unreadCount || 0 } as Conversation;
+          }
+        })
+      );
+
+      setConversations(convsWithUnread);
+
       // Auto-select first conversation
-      if (sortedConvs.length > 0 && !selectedConversation) {
-        selectConversation(sortedConvs[0]);
+      if (convsWithUnread.length > 0 && !selectedConversation) {
+        selectConversation(convsWithUnread[0]);
       }
     } catch (error) {
       console.error('Error loading conversations:', error);
@@ -252,6 +245,7 @@ export default function TeamChat() {
       setSelectedConversation(conversation);
       selectedConversationRef.current = conversation; // Update ref for WebSocket callbacks
       setMessages([]);
+      setActiveConversationId(conversation._id);
       
       // Join new conversation room via WebSocket
       websocketClient.joinConversation(conversation._id);
@@ -259,34 +253,23 @@ export default function TeamChat() {
       
       // Load messages once via API
       await loadMessages(conversation._id);
-      
+      // Clear unread for this conversation locally
+      setConversations(prev => prev.map(c => c._id === conversation._id ? { ...c, unreadCount: 0 } : c));
+
+      // Mark conversation as read on backend
+      try {
+        await apiClient.markConversationAsRead(conversation._id);
+      } catch (err) {
+        console.error('Failed to mark conversation as read', err);
+      }
+
     } catch (error) {
       console.error('Error selecting conversation:', error);
       setMessages([]);
     }
   };
 
-  const reconnectWebSocket = async () => {
-    try {
-      setWsConnected(false);
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        await websocketClient.connect(token);
-        setWsConnected(true);
-        toast({
-          title: "Reconnected",
-          description: "WebSocket connection restored",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to reconnect WebSocket:', error);
-      toast({
-        title: "Reconnection Failed",
-        description: "Could not restore WebSocket connection",
-        variant: "destructive",
-      });
-    }
-  };
+  // Reconnect handled by global ChatContext auto-reconnect
 
   const loadMessages = async (conversationId: string) => {
     try {
@@ -369,6 +352,25 @@ export default function TeamChat() {
       setMessageInput(messageContent);
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      // Optimistically remove the message
+      setMessages(prev => prev.filter(m => m._id !== messageId));
+      await apiClient.deleteMessage(messageId);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete message",
+        variant: "destructive",
+      });
+      // Reload messages if deletion failed
+      if (selectedConversation) {
+        await loadMessages(selectedConversation._id);
+      }
     }
   };
 
@@ -520,10 +522,12 @@ export default function TeamChat() {
       <div className="h-[calc(100vh-2rem)] m-4 flex gap-4">
         {/* Conversations Sidebar */}
         <Card className="w-full md:w-80 flex flex-col">
-          <CardHeader className="pb-3 border-b">
+              <CardHeader className="pb-3 border-b">
             <CardTitle className="text-lg flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span>Messages</span>
+                <span className="relative">
+                  Messages
+                </span>
                 <div className={`h-2 w-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`} title={wsConnected ? 'Connected' : 'Disconnected'} />
               </div>
               <div className="flex gap-1">
@@ -543,14 +547,7 @@ export default function TeamChat() {
                 >
                   <Users className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={reconnectWebSocket}
-                  title={wsConnected ? "Reconnect WebSocket" : "Connect WebSocket"}
-                >
-                  {wsConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-                </Button>
+                {/* Connection status is shown as dot; reconnect handled globally */}
               </div>
             </CardTitle>
           </CardHeader>
@@ -595,8 +592,15 @@ export default function TeamChat() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {conv.lastMessage?.content || `${conv.participants.length} participant${conv.participants.length !== 1 ? 's' : ''}`}
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-2">
+                          <span className="truncate">
+                            {conv.lastMessage?.content || `${conv.participants.length} participant${conv.participants.length !== 1 ? 's' : ''}`}
+                          </span>
+                          {(() => { const badgeCount = (unreadByConversation[conv._id] ?? conv.unreadCount ?? 0); return badgeCount > 0; })() && (
+                            <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 flex-shrink-0">
+                              {(unreadByConversation[conv._id] ?? conv.unreadCount ?? 0)}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -657,6 +661,18 @@ export default function TeamChat() {
                       <span className="hidden sm:inline">Info</span>
                     </Button>
                   )}
+                  {/* Delete Conversation - admin only, non-direct chats */}
+                  {(user?.role?.toLowerCase() === 'admin' && (selectedConversation.type === 'group' || selectedConversation.type === 'project')) && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={handleDeleteConversation}
+                      title="Delete conversation"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
 
@@ -677,11 +693,11 @@ export default function TeamChat() {
                       const isCurrentUser = message.sender._id === user?._id;
                       const senderInitials = `${message.sender.firstName?.[0] || ''}${message.sender.lastName?.[0] || ''}`.toUpperCase() || 'U';
                       const senderName = `${message.sender.firstName || ''} ${message.sender.lastName || ''}`.trim() || 'Unknown';
-                      
+                       
                       return (
                         <div 
                           key={message._id} 
-                          className={`flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+                          className={`group flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           {!isCurrentUser && (
                             <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
@@ -703,6 +719,7 @@ export default function TeamChat() {
                                   minute: '2-digit' 
                                 })}
                               </span>
+                              {/* Message delete hidden in admin UI */}
                             </div>
                             <div className={`px-4 py-2 rounded-2xl ${
                               isCurrentUser 

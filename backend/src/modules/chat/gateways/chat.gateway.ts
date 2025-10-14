@@ -244,10 +244,10 @@ export class ChatGateway
         client.userId,
       );
 
-      // Broadcast to conversation participants
+      // Broadcast to conversation participants using standardized event name
       this.server
         .to(`conversation:${updatedMessage.conversation}`)
-        .emit('message:edited', {
+        .emit('message:updated', {
           message: updatedMessage,
         });
     } catch (error) {
