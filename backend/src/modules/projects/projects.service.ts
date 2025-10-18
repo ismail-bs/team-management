@@ -707,14 +707,14 @@ export class ProjectsService implements IProjectService {
       : [];
 
     return {
-      _id: project._id.toString(),
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      priority: project.priority,
-      startDate: project.startDate.toISOString(),
-      endDate: project.endDate?.toISOString(),
-      deadline: project.deadline?.toISOString(),
+      _id: project?._id?.toString(),
+      name: project?.name,
+      description: project?.description,
+      status: project?.status,
+      priority: project?.priority,
+      startDate: project?.startDate?.toISOString(),
+      endDate: project?.endDate?.toISOString(),
+      deadline: project?.deadline?.toISOString(),
       projectManager: pmData
         ? {
             _id: pmData?._id?.toString(),
@@ -733,11 +733,11 @@ export class ProjectsService implements IProjectService {
             tasksCompleted: pmData?.tasksCompleted,
           }
         : {
-            _id: project.projectManager.toString(),
-            email: '',
-            firstName: '',
-            lastName: '',
-            role: '',
+            _id: project?.projectManager?.toString() || 'unknown',
+            email: 'No Manager Assigned',
+            firstName: 'No Manager',
+            lastName: 'Assigned',
+            role: 'Unknown',
             department: undefined,
             location: undefined,
             status: 'active',
@@ -750,7 +750,7 @@ export class ProjectsService implements IProjectService {
           },
       teamMembers: teamMembersData.map((member) => ({
         _id: member?._id?.toString(),
-        email: member.email,
+        email: member?.email,
         firstName: member?.firstName,
         lastName: member?.lastName,
         role: member?.role,

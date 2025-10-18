@@ -115,7 +115,11 @@ export class MeetingsController {
     @Query() query: MeetingQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const result = await this.meetingsService.findAll(query, req.user.sub);
+    const result = await this.meetingsService.findAll(
+      query,
+      req.user?.sub,
+      req.user?.role,
+    );
 
     // Transform to standard paginated response format
     return {

@@ -140,6 +140,7 @@ export class MeetingsService {
   async findAll(
     query: MeetingQueryDto,
     userId: string,
+    userRole?: string,
   ): Promise<{
     meetings: MeetingDocument[];
     total: number;
@@ -157,12 +158,15 @@ export class MeetingsService {
       limit = 10,
     } = query;
 
-    const filter: Record<string, unknown> = {
-      $or: [
+    const filter: Record<string, unknown> = {};
+
+    // Admin users can see all meetings, others only see meetings they're involved in
+    if (userRole !== 'admin') {
+      filter.$or = [
         { organizer: new Types.ObjectId(userId) },
         { participants: new Types.ObjectId(userId) },
-      ],
-    };
+      ];
+    }
 
     if (project) {
       filter.project = new Types.ObjectId(project);
