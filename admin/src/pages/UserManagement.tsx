@@ -259,7 +259,7 @@ export default function UserManagement() {
     if (!deletingUser) return;
 
     try {
-      await apiClient.deleteUser(deletingUser._id);
+      await apiClient.deleteUser(deletingUser?._id);
       
       toast({
         title: "Success",
@@ -525,7 +525,7 @@ export default function UserManagement() {
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
                   {departments.map(dept => (
-                    <SelectItem key={dept._id} value={dept._id}>
+                    <SelectItem key={dept?._id} value={dept?._id}>
                       {dept.name} ({dept.employeeCount})
                     </SelectItem>
                   ))}
@@ -552,7 +552,7 @@ export default function UserManagement() {
               <div className="space-y-3">
                 {users.map((user) => (
                   <div
-                    key={user._id}
+                    key={user?._id}
                     className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-0">

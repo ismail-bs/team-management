@@ -151,6 +151,7 @@ export class MeetingsController {
     const meetings = await this.meetingsService.getUpcomingMeetings(
       req.user.sub,
       limitNumber,
+      req.user.role,
     );
     return meetings;
   }

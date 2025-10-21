@@ -39,8 +39,8 @@ const generateTimeOptions = () => {
   const times = [];
   for (let hour = 0; hour < 24; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
-      const hourStr = hour.toString().padStart(2, '0');
-      const minuteStr = minute.toString().padStart(2, '0');
+      const hourStr = hour?.toString().padStart(2, '0');
+      const minuteStr = minute?.toString().padStart(2, '0');
       const time24 = `${hourStr}:${minuteStr}`;
       
       // Convert to 12-hour format for display
@@ -104,7 +104,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
   };
 
   const getSelectedParticipantDetails = () => {
-    return teamMembers.filter(member => selectedParticipants.includes(member._id));
+    return teamMembers.filter(member => selectedParticipants.includes(member?._id));
   };
 
   const resetForm = () => {
@@ -439,7 +439,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
                 <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
                   {getSelectedParticipantDetails().map((participant) => (
                     <Badge
-                      key={participant._id}
+                      key={participant?._id}
                       variant="default"
                       className="pl-2 pr-1 py-1 gap-2"
                     >
@@ -454,7 +454,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
                       </span>
                       <button
                         type="button"
-                        onClick={() => removeParticipant(participant._id)}
+                        onClick={() => removeParticipant(participant?._id)}
                         className="ml-1 hover:bg-white/20 rounded-full p-0.5"
                       >
                         <X className="h-3 w-3" />
@@ -471,13 +471,13 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
                     {teamMembers.length > 0 ? (
                       teamMembers.map((member) => (
                         <div
-                          key={member._id}
+                          key={member?._id}
                           className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg cursor-pointer transition-colors"
-                          onClick={() => toggleParticipant(member._id)}
+                          onClick={() => toggleParticipant(member?._id)}
                         >
                           <Checkbox
-                            checked={selectedParticipants.includes(member._id)}
-                            onCheckedChange={() => toggleParticipant(member._id)}
+                            checked={selectedParticipants.includes(member?._id)}
+                            onCheckedChange={() => toggleParticipant(member?._id)}
                           />
                           <Avatar className="h-8 w-8">
                             <AvatarImage src={member.avatar} alt={member.firstName} />

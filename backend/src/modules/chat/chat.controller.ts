@@ -200,7 +200,7 @@ export class ChatController {
       req.user.sub,
     );
 
-    this.logger.log(`📨 Message saved with ID: ${message._id}`);
+    this.logger.log(`📨 Message saved with ID: ${message?._id}`);
 
     // Get room info for debugging
     const roomName = `conversation:${sendMessageDto.conversation}`;
@@ -259,7 +259,7 @@ export class ChatController {
     const conversationId =
       typeof deleted.conversation === 'string'
         ? deleted.conversation
-        : deleted.conversation?.toString?.();
+        : deleted?.conversation?.toString?.();
     if (conversationId) {
       this.chatGateway.server
         .to(`conversation:${conversationId}`)

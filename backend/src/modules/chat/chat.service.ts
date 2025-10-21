@@ -98,7 +98,7 @@ export class ChatService {
 
     // Populate participants before returning
     const populatedConversation = await this.conversationModel
-      .findById(savedConversation._id)
+      .findById(savedConversation?._id)
       .populate('participants', 'firstName lastName email avatar')
       .populate('createdBy', 'firstName lastName email avatar')
       .exec();
@@ -190,7 +190,7 @@ export class ChatService {
 
     // Only creator or admin can update certain fields
     if (updateConversationDto.title || updateConversationDto.description) {
-      const isCreator = conversation.createdBy.toString() === userId;
+      const isCreator = conversation.createdBy?.toString() === userId;
       if (!isCreator && !isAdmin) {
         throw new ForbiddenException(
           'Only conversation creator or admin can update title/description',
@@ -255,7 +255,7 @@ export class ChatService {
       throw new NotFoundException('User not found');
     }
 
-    const isCreator = conversation.createdBy.toString() === userId;
+    const isCreator = conversation.createdBy?.toString() === userId;
     const isAdmin = requestingUser.role === Role.ADMIN;
 
     if (conversation.type === ConversationType.GROUP) {
@@ -280,7 +280,7 @@ export class ChatService {
 
     if (
       conversation.participants.some(
-        (p) => p.toString() === addParticipantDto.userId,
+        (p) => p?.toString() === addParticipantDto.userId,
       )
     ) {
       throw new BadRequestException('User is already a participant');
@@ -298,7 +298,7 @@ export class ChatService {
     );
 
     return this.conversationModel
-      .findById(savedConversation._id)
+      .findById(savedConversation?._id)
       .populate('participants', 'firstName lastName email avatar')
       .populate('createdBy', 'firstName lastName email avatar')
       .exec() as Promise<ConversationDocument>;
@@ -334,7 +334,7 @@ export class ChatService {
       throw new NotFoundException('User not found');
     }
 
-    const isCreator = conversation.createdBy.toString() === userId;
+    const isCreator = conversation.createdBy?.toString() === userId;
     const isAdmin = requestingUser.role === Role.ADMIN;
     const isSelfRemoval = removeParticipantDto.userId === userId;
 
@@ -359,7 +359,7 @@ export class ChatService {
     }
 
     const participantIndex = conversation.participants.findIndex(
-      (p) => p.toString() === removeParticipantDto.userId,
+      (p) => p?.toString() === removeParticipantDto.userId,
     );
 
     if (participantIndex === -1) {
@@ -383,7 +383,7 @@ export class ChatService {
     );
 
     return this.conversationModel
-      .findById(savedConversation._id)
+      .findById(savedConversation?._id)
       .populate('participants', 'firstName lastName email avatar')
       .populate('createdBy', 'firstName lastName email avatar')
       .exec() as Promise<ConversationDocument>;
@@ -422,14 +422,14 @@ export class ChatService {
     await this.conversationModel.findByIdAndUpdate(
       sendMessageDto.conversation,
       {
-        lastMessage: savedMessage._id,
+        lastMessage: savedMessage?._id,
         lastActivity: new Date(),
       },
     );
 
     // Populate sender before returning
     const populatedMessage = await this.messageModel
-      .findById(savedMessage._id)
+      .findById(savedMessage?._id)
       .populate('sender', 'firstName lastName email avatar')
       .exec();
 
@@ -570,10 +570,10 @@ export class ChatService {
     }
 
     // Delete all messages associated with the conversation
-    await this.messageModel.deleteMany({ conversation: conversation._id });
+    await this.messageModel.deleteMany({ conversation: conversation?._id });
 
     // Delete the conversation itself
-    await this.conversationModel.findByIdAndDelete(conversation._id);
+    await this.conversationModel.findByIdAndDelete(conversation?._id);
 
     this.logger.log(
       `Conversation ${conversationId} and its messages deleted by admin ${userId}`,
@@ -608,7 +608,7 @@ export class ChatService {
 
     if (existingReaction) {
       const userIndex = existingReaction.users.findIndex(
-        (u) => u.toString() === userId,
+        (u) => u?.toString() === userId,
       );
       if (userIndex === -1) {
         existingReaction.users.push(userObjectId);
@@ -654,7 +654,7 @@ export class ChatService {
     }
 
     const existingRead = message.readBy.find(
-      (r) => r.user.toString() === userId,
+      (r) => r.user?.toString() === userId,
     );
     if (!existingRead) {
       message.readBy.push({
@@ -779,7 +779,7 @@ export class ChatService {
     const savedMessage = await message.save();
 
     // Update conversation's last message
-    conversation.lastMessage = savedMessage._id;
+    conversation.lastMessage = savedMessage?._id;
     conversation.updatedAt = new Date();
     await conversation.save();
 
@@ -799,7 +799,7 @@ export class ChatService {
 
       // Check if user is already a participant
       const isParticipant = conversation.participants.some(
-        (p) => p.toString() === userId,
+        (p) => p?.toString() === userId,
       );
 
       if (!isParticipant) {

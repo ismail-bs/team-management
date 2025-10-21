@@ -199,7 +199,7 @@ export function LogChallengeDialog({ open, onOpenChange, onSubmit }: LogChalleng
                 </SelectTrigger>
                 <SelectContent>
                   {teamMembers.map((member) => (
-                    <SelectItem key={member._id} value={member._id}>
+                    <SelectItem key={member?._id} value={member?._id}>
                       {member.firstName} {member.lastName}
                     </SelectItem>
                   ))}

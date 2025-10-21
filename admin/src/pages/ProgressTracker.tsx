@@ -343,7 +343,7 @@ export default function ProgressTracker() {
           {filteredProjects.length > 0 ? (
             filteredProjects.map((project) => (
               <div 
-                key={project._id}
+                key={project?._id}
                 onClick={() => {
                   setSelectedProject(project);
                   setEditProjectOpen(true);
@@ -366,7 +366,7 @@ export default function ProgressTracker() {
                       : (project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date')
                   }
                   teamMembers={project.teamMembers.map(m => ({
-                    id: m._id,
+                    id: m?._id,
                     name: `${m.firstName} ${m.lastName}`
                   }))}
                   priority={

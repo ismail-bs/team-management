@@ -81,7 +81,7 @@ export function GroupInfoDialog({
   const handleAddMember = async (member: { id: string; name: string }) => {
     try {
       setLoading(true);
-      await apiClient.addConversationParticipant(conversation._id, member.id);
+      await apiClient.addConversationParticipant(conversation?._id, member.id);
       
       toast({
         title: "Success",
@@ -119,8 +119,8 @@ export function GroupInfoDialog({
     try {
       setLoading(true);
       await apiClient.removeConversationParticipant(
-        conversation._id,
-        selectedUserToRemove._id
+        conversation?._id,
+        selectedUserToRemove?._id
       );
       
       toast({
@@ -175,7 +175,7 @@ export function GroupInfoDialog({
 
     try {
       setLoading(true);
-      await apiClient.updateConversation(conversation._id, {
+      await apiClient.updateConversation(conversation?._id, {
         title: editedName.trim()
       });
       
@@ -215,7 +215,7 @@ export function GroupInfoDialog({
   };
 
   const getRoleIcon = (participant: User) => {
-    if (participant._id === conversation.createdBy?._id) {
+    if (participant?._id === conversation.createdBy?._id) {
       return <Crown className="h-3.5 w-3.5 text-yellow-600" />;
     }
     if (participant.role === 'admin') {
@@ -225,10 +225,10 @@ export function GroupInfoDialog({
   };
 
   const getRoleBadge = (participant: User) => {
-    if (participant._id === conversation.createdBy?._id) {
+    if (participant?._id === conversation.createdBy?._id) {
       return <Badge variant="default" className="bg-yellow-600 text-white text-xs">Creator</Badge>;
     }
-    if (isProjectChat && conversation.project?.projectManager === participant._id) {
+    if (isProjectChat && conversation.project?.projectManager === participant?._id) {
       return <Badge variant="default" className="bg-blue-600 text-white text-xs">PM</Badge>;
     }
     if (participant.role === 'admin') {
@@ -238,7 +238,7 @@ export function GroupInfoDialog({
   };
 
   // Filter out existing participants from the add member dialog
-  const existingParticipantIds = conversation.participants?.map(p => p._id) || [];
+  const existingParticipantIds = conversation.participants?.map(p => p?._id) || [];
 
   return (
     <>
@@ -356,7 +356,7 @@ export function GroupInfoDialog({
                 <div className="space-y-2">
                   {conversation.participants?.map((participant) => (
                     <div
-                      key={participant._id}
+                      key={participant?._id}
                       className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <Avatar className="h-10 w-10">
@@ -370,7 +370,7 @@ export function GroupInfoDialog({
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-sm truncate">
                             {participant.firstName || 'Unknown'} {participant.lastName || 'User'}
-                            {participant._id === currentUser?._id && (
+                            {participant?._id === currentUser?._id && (
                               <span className="text-muted-foreground ml-1">(You)</span>
                             )}
                           </p>
@@ -385,8 +385,8 @@ export function GroupInfoDialog({
                         {getRoleBadge(participant)}
                         
                         {canManageParticipants && 
-                         participant._id !== currentUser?._id && 
-                         participant._id !== conversation.createdBy?._id && (
+                         participant?._id !== currentUser?._id && 
+                         participant?._id !== conversation.createdBy?._id && (
                           <Button
                             size="sm"
                             variant="ghost"

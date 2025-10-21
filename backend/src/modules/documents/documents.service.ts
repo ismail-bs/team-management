@@ -146,7 +146,7 @@ export class DocumentsService {
 
       // Populate before returning
       const populatedDoc = (await this.documentModel
-        .findById(savedDoc._id)
+        .findById(savedDoc?._id)
         .populate('uploadedBy', 'firstName lastName email avatar')
         .populate('project', 'name')
         .exec()) as DocumentDocument;
@@ -289,7 +289,7 @@ export class DocumentsService {
           } catch (error) {
             console.error(
               'Failed to generate presigned URL for document:',
-              doc._id,
+              doc?._id,
               error,
             );
             // Continue without URL
@@ -328,9 +328,14 @@ export class DocumentsService {
     }
 
     // Check access permissions
+    const uploaderId = document.uploadedBy?._id
+      ? document.uploadedBy._id.toString()
+      : null;
     const hasAccess =
-      document.uploadedBy._id.toString() === userId ||
-      document.sharedWith.some((user) => user._id.toString() === userId) ||
+      uploaderId === userId ||
+      document.sharedWith.some((user) =>
+        user?._id ? user._id.toString() === userId : false,
+      ) ||
       document.visibility === DocumentVisibility.PUBLIC;
 
     if (!hasAccess) {
@@ -381,7 +386,7 @@ export class DocumentsService {
     }
 
     // Only the uploader can update the document
-    if (document.uploadedBy._id.toString() !== userId) {
+    if (document.uploadedBy?._id?.toString() !== userId) {
       throw new ForbiddenException('Only the document uploader can update it');
     }
 
@@ -409,12 +414,20 @@ export class DocumentsService {
     return updatedDocument;
   }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string, userRole?: string): Promise<void> {
     const document = await this.findOne(id, userId);
 
-    // Only the uploader can delete the document
-    if (document.uploadedBy._id.toString() !== userId) {
-      throw new ForbiddenException('Only the document uploader can delete it');
+    // Only the uploader or admin can delete the document
+    const uploaderId = document.uploadedBy?._id
+      ? document.uploadedBy._id.toString()
+      : null;
+    const isUploader = uploaderId === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isUploader && !isAdmin) {
+      throw new ForbiddenException(
+        'Only the document uploader or admin can delete it',
+      );
     }
 
     try {
@@ -504,10 +517,10 @@ export class DocumentsService {
     }
 
     // Check if user has access to the document
-    const isUploader = document.uploadedBy._id.toString() === userId;
+    const isUploader = document.uploadedBy?._id?.toString() === userId;
     const isPublic = document.visibility === DocumentVisibility.PUBLIC;
     const isSharedWithUser = document.sharedWith.some(
-      (sharedUserId) => sharedUserId.toString() === userId,
+      (sharedUserId) => sharedUserId?.toString() === userId,
     );
     const hasAccess = isUploader || isPublic || isSharedWithUser;
 
@@ -523,7 +536,7 @@ export class DocumentsService {
     }
 
     // Add new users to sharedWith array (avoid duplicates)
-    const existingSharedIds = document.sharedWith.map((id) => id.toString());
+    const existingSharedIds = document.sharedWith.map((id) => id?.toString());
     const newSharedIds = shareDocumentDto.userIds.filter(
       (id) => !existingSharedIds.includes(id),
     );
@@ -599,12 +612,12 @@ export class DocumentsService {
     const document = await this.findOne(id, userId);
 
     // Only the uploader can unshare the document
-    if (document.uploadedBy._id.toString() !== userId) {
+    if (document.uploadedBy?._id?.toString() !== userId) {
       throw new ForbiddenException('Only the document uploader can unshare it');
     }
 
     document.sharedWith = document.sharedWith.filter(
-      (id) => id.toString() !== targetUserId,
+      (id) => id?.toString() !== targetUserId,
     );
 
     return await document.save();
@@ -687,7 +700,7 @@ export class DocumentsService {
 
     const documentsByType: Record<string, number> = {};
     documentsByTypeResult.forEach((item) => {
-      documentsByType[item._id] = item.count;
+      documentsByType[item?._id] = item.count;
     });
 
     return {

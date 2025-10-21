@@ -103,7 +103,7 @@ export function EditUserDialog({ open, onOpenChange, user, onUpdate }: EditUserD
     try {
       setLoading(true);
       
-      await apiClient.updateUserById(user._id, {
+      await apiClient.updateUserById(user?._id, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         phone: formData.phone || undefined,
@@ -239,7 +239,7 @@ export function EditUserDialog({ open, onOpenChange, user, onUpdate }: EditUserD
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       {departments.map((dept) => (
-                        <SelectItem key={dept._id} value={dept._id}>
+                        <SelectItem key={dept?._id} value={dept?._id}>
                           {dept.name}
                         </SelectItem>
                       ))}

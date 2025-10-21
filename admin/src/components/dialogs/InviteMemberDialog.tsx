@@ -177,7 +177,7 @@ export function InviteMemberDialog({ open, onOpenChange, onSubmit }: InviteMembe
               <SelectContent>
                 {departments.length > 0 ? (
                   departments.map((dept) => (
-                    <SelectItem key={dept._id} value={dept._id}>
+                    <SelectItem key={dept?._id} value={dept?._id}>
                       {dept.name}
                     </SelectItem>
                   ))

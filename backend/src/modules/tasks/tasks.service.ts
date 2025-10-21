@@ -56,11 +56,11 @@ export class TasksService implements ITaskService {
     // If this is a subtask, add it to parent's subtasks array
     if (createTaskDto.parentTask) {
       await this.taskModel.findByIdAndUpdate(createTaskDto.parentTask, {
-        $addToSet: { subtasks: savedTask._id },
+        $addToSet: { subtasks: savedTask?._id },
       });
     }
 
-    return this.findById(savedTask._id.toString());
+    return this.findById(savedTask?._id?.toString());
   }
 
   async findAll(
@@ -180,8 +180,8 @@ export class TasksService implements ITaskService {
 
     // Check if user has permission to update (creator, assignee, or admin)
     const canUpdate =
-      (task.createdBy && task.createdBy._id.toString() === userId) ||
-      (task.assignedTo && task.assignedTo._id.toString() === userId);
+      (task.createdBy && task.createdBy?._id?.toString() === userId) ||
+      (task.assignedTo && task.assignedTo?._id?.toString() === userId);
 
     if (!canUpdate) {
       throw new ForbiddenException(
@@ -212,12 +212,12 @@ export class TasksService implements ITaskService {
       // Remove from old parent
       if (task.parentTask) {
         await this.taskModel.findByIdAndUpdate(task.parentTask, {
-          $pull: { subtasks: task._id },
+          $pull: { subtasks: task?._id },
         });
       }
       // Add to new parent
       await this.taskModel.findByIdAndUpdate(updateTaskDto.parentTask, {
-        $addToSet: { subtasks: task._id },
+        $addToSet: { subtasks: task?._id },
       });
     }
 
@@ -229,14 +229,14 @@ export class TasksService implements ITaskService {
       throw new NotFoundException('Task not found after update');
     }
 
-    return this.findById(updatedTask._id.toString());
+    return this.findById(updatedTask?._id?.toString());
   }
 
   async remove(id: string, userId: string): Promise<void> {
     const task = await this.findById(id);
 
     // Check if user has permission to delete (creator only or admin)
-    if (task.createdBy._id.toString() !== userId) {
+    if (task.createdBy?._id?.toString() !== userId) {
       throw new ForbiddenException(
         'You do not have permission to delete this task',
       );
@@ -245,7 +245,7 @@ export class TasksService implements ITaskService {
     // Remove from parent's subtasks if it's a subtask
     if (task.parentTask) {
       await this.taskModel.findByIdAndUpdate(task.parentTask, {
-        $pull: { subtasks: task._id },
+        $pull: { subtasks: task?._id },
       });
     }
 
@@ -256,8 +256,8 @@ export class TasksService implements ITaskService {
 
     // Remove this task from dependencies of other tasks
     await this.taskModel.updateMany(
-      { dependencies: task._id },
-      { $pull: { dependencies: task._id } },
+      { dependencies: task?._id },
+      { $pull: { dependencies: task?._id } },
     );
 
     await this.taskModel.findByIdAndDelete(id);
@@ -295,7 +295,7 @@ export class TasksService implements ITaskService {
     }
 
     const comment = task.comments[commentIndex];
-    if (comment.user.toString() !== userId) {
+    if (comment.user?.toString() !== userId) {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
@@ -426,8 +426,8 @@ export class TasksService implements ITaskService {
 
     // Permission check: Only creator or assignee can update progress
     const canUpdate =
-      (task.createdBy && task.createdBy._id.toString() === userId) ||
-      (task.assignedTo && task.assignedTo._id.toString() === userId);
+      (task.createdBy && task.createdBy?._id?.toString() === userId) ||
+      (task.assignedTo && task.assignedTo?._id?.toString() === userId);
 
     if (!canUpdate) {
       throw new ForbiddenException(

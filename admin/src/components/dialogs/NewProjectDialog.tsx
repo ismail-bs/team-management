@@ -91,7 +91,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
   };
 
   const getSelectedMemberDetails = () => {
-    return teamMembers.filter(member => selectedTeamMembers.includes(member._id));
+    return teamMembers.filter(member => selectedTeamMembers.includes(member?._id));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,7 +226,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                 </SelectTrigger>
                 <SelectContent>
                   {projectManagers.map((manager) => (
-                    <SelectItem key={manager._id} value={manager._id}>
+                    <SelectItem key={manager?._id} value={manager?._id}>
                       {manager.firstName} {manager.lastName} ({manager.role})
                     </SelectItem>
                   ))}
@@ -330,7 +330,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
               <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
                 {getSelectedMemberDetails().map((member) => (
                   <Badge
-                    key={member._id}
+                    key={member?._id}
                     variant="default"
                     className="pl-2 pr-1 py-1 gap-2"
                   >
@@ -345,7 +345,7 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                     </span>
                     <button
                       type="button"
-                      onClick={() => removeTeamMember(member._id)}
+                      onClick={() => removeTeamMember(member?._id)}
                       className="ml-1 hover:bg-white/20 rounded-full p-0.5"
                     >
                       <X className="h-3 w-3" />
@@ -362,13 +362,13 @@ export function NewProjectDialog({ open, onOpenChange, onSubmit }: NewProjectDia
                   {teamMembers.length > 0 ? (
                     teamMembers.map((member) => (
                       <div
-                        key={member._id}
+                        key={member?._id}
                         className="flex items-center gap-3 p-2 hover:bg-muted/50 rounded-lg cursor-pointer transition-colors"
-                        onClick={() => { if (!submitting) toggleTeamMember(member._id); }}
+                        onClick={() => { if (!submitting) toggleTeamMember(member?._id); }}
                       >
                         <Checkbox
-                          checked={selectedTeamMembers.includes(member._id)}
-                          onCheckedChange={() => toggleTeamMember(member._id)}
+                          checked={selectedTeamMembers.includes(member?._id)}
+                          onCheckedChange={() => toggleTeamMember(member?._id)}
                           disabled={submitting}
                         />
                         <Avatar className="h-8 w-8">

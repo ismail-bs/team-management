@@ -222,7 +222,7 @@ export default function Meetings() {
       const endDateTime = new Date(meetingData.date);
       endDateTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
 
-      await apiClient.updateMeeting(selectedMeeting._id, {
+      await apiClient.updateMeeting(selectedMeeting?._id, {
         title: meetingData.title,
         description: meetingData.description,
         type: meetingData.type as "team-meeting" | "one-on-one" | "project-review" | "standup" | "retrospective" | "other",
@@ -259,7 +259,7 @@ export default function Meetings() {
     if (!selectedMeeting) return;
     
     try {
-      await apiClient.deleteMeeting(selectedMeeting._id);
+      await apiClient.deleteMeeting(selectedMeeting?._id);
       toast({
         title: "Success",
         description: "Meeting deleted successfully",
@@ -283,7 +283,7 @@ export default function Meetings() {
     if (!selectedMeeting) return;
     
     try {
-      await apiClient.updateMeeting(selectedMeeting._id, {
+      await apiClient.updateMeeting(selectedMeeting?._id, {
         notes: data.notes,
         summary: data.summary,
       });
@@ -377,7 +377,7 @@ export default function Meetings() {
     const isTomorrowMeeting = isTomorrow(startDate);
     
     return (
-      <Card key={meeting._id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-gradient-to-r from-white to-blue-50/30">
+      <Card key={meeting?._id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500 bg-gradient-to-r from-white to-blue-50/30">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -639,7 +639,7 @@ export default function Meetings() {
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {selectedDateMeetings.map((meeting) => (
                         <div 
-                          key={meeting._id} 
+                          key={meeting?._id} 
                           className="p-3 rounded-lg bg-blue-50 border border-blue-200"
                         >
                           <p className="font-medium text-sm">{meeting.title}</p>

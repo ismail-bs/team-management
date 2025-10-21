@@ -193,7 +193,7 @@ export default function DocumentHub() {
     try {
       if (!doc.downloadUrl) {
         // Fallback: fetch document to get URL
-        const fullDoc = await apiClient.getDocumentById(doc._id);
+        const fullDoc = await apiClient.getDocumentById(doc?._id);
         if (fullDoc.downloadUrl) {
           window.open(fullDoc.downloadUrl, '_blank');
         } else {
@@ -460,7 +460,7 @@ export default function DocumentHub() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredDocuments.map(doc => (
-                <Card key={doc._id} className="shadow-soft hover:shadow-medium transition-all duration-300 group">
+                <Card key={doc?._id} className="shadow-soft hover:shadow-medium transition-all duration-300 group">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -529,7 +529,7 @@ export default function DocumentHub() {
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction 
                                     className="bg-destructive hover:bg-destructive/90"
-                                    onClick={() => handleDeleteDocument(doc._id)}
+                                    onClick={() => handleDeleteDocument(doc?._id)}
                                   >
                                     Delete Document
                                   </AlertDialogAction>
@@ -636,17 +636,17 @@ export default function DocumentHub() {
             <ShareDocumentDialog
               open={shareDialogOpen}
               onOpenChange={setShareDialogOpen}
-              documentId={selectedDocument._id}
+              documentId={selectedDocument?._id}
               documentName={selectedDocument.name}
-              currentlySharedWith={selectedDocument.sharedWith?.map(u => typeof u === 'string' ? u : u._id) || []}
-              onShare={(userIds) => handleShareDocument(selectedDocument._id, userIds)}
+              currentlySharedWith={selectedDocument.sharedWith?.map(u => typeof u === 'string' ? u : u?._id) || []}
+              onShare={(userIds) => handleShareDocument(selectedDocument?._id, userIds)}
             />
             
             <EditDocumentDialog
               open={editDialogOpen}
               onOpenChange={setEditDialogOpen}
               document={selectedDocument}
-              onUpdate={(updates) => handleUpdateDocument(selectedDocument._id, updates)}
+              onUpdate={(updates) => handleUpdateDocument(selectedDocument?._id, updates)}
             />
           </>
         )}

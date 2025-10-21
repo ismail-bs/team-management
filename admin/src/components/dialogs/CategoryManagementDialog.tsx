@@ -41,7 +41,7 @@ export function CategoryManagementDialog({ children }: CategoryManagementDialogP
     if (!newCategory.name.trim()) return;
     
     const category: Category = {
-      id: Date.now().toString(),
+      id: Date.now()?.toString(),
       name: newCategory.name,
       color: newCategory.color,
       count: 0

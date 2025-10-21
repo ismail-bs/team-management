@@ -49,7 +49,7 @@ export class UsersService {
 
     // If user is assigned to a department, update that department's employee count
     if (saved.department) {
-      const deptId = saved.department.toString();
+      const deptId = saved.department?.toString();
       const count = await this.userModel.countDocuments({ department: deptId });
       await this.departmentModel.findByIdAndUpdate(deptId, {
         employeeCount: count,
@@ -206,8 +206,8 @@ export class UsersService {
     }
 
     // Recalculate employee counts if department changed
-    const prevDept = prev?.department ? prev.department.toString() : null;
-    const newDept = user.department ? user.department.toString() : null;
+    const prevDept = prev?.department ? prev.department?.toString() : null;
+    const newDept = user.department ? user.department?.toString() : null;
 
     if (prevDept !== newDept) {
       if (prevDept) {
@@ -240,7 +240,7 @@ export class UsersService {
     await this.userModel.findByIdAndDelete(id).exec();
 
     // Update employee count for the user's former department
-    const deptId = user.department ? user.department.toString() : null;
+    const deptId = user.department ? user.department?.toString() : null;
     if (deptId) {
       const count = await this.userModel.countDocuments({ department: deptId });
       await this.departmentModel.findByIdAndUpdate(deptId, {

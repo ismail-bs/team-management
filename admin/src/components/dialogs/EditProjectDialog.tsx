@@ -54,7 +54,7 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
         priority: project.priority || "medium",
         status: project.status || "not-started",
         projectManager: typeof project.projectManager === 'object' 
-          ? project.projectManager._id 
+          ? project.projectManager?._id 
           : project.projectManager || "",
         budget: project.budget?.toString() || ""
       });
@@ -173,7 +173,7 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
         updatePayload.budget = parseFloat(formData.budget);
       }
       
-      await apiClient.updateProject(project._id, updatePayload);
+      await apiClient.updateProject(project?._id, updatePayload);
       
       toast({
         title: "Success",
@@ -214,7 +214,7 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
     try {
       setDeleting(true);
       
-      await apiClient.deleteProject(project._id);
+      await apiClient.deleteProject(project?._id);
       
       toast({
         title: "Success",
@@ -242,7 +242,7 @@ export function EditProjectDialog({ open, onOpenChange, project, onUpdate }: Edi
 
   // Permission: who can delete this project
   const projectManagerId = typeof project.projectManager === 'object'
-    ? project.projectManager._id
+    ? project.projectManager?._id
     : (project.projectManager as string | undefined);
   const canDelete = canDeleteProject(user?.role, projectManagerId, user?._id);
 

@@ -44,15 +44,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       try {
         const conversations: Conversation[] = await apiClient.getConversations();
         if (!mounted) return;
-        conversationsRef.current = conversations.map((c) => c._id);
+        conversationsRef.current = conversations.map((c) => c?._id);
         const entries = await Promise.all(
           conversations.map(async (c) => {
             try {
-              const { count } = await apiClient.getUnreadCount(c._id);
-              return [c._id, count] as const;
+              const { count } = await apiClient.getUnreadCount(c?._id);
+              return [c?._id, count] as const;
             } catch (err) {
-              console.error("Failed to fetch unread for conversation:", c._id, err);
-              return [c._id, 0] as const;
+              console.error("Failed to fetch unread for conversation:", c?._id, err);
+              return [c?._id, 0] as const;
             }
           })
         );
@@ -99,7 +99,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // If conversations not loaded yet, fetch them
             if (!conversationsRef.current.length) {
               const convs = await apiClient.getConversations();
-              conversationsRef.current = convs.map((c) => c._id);
+              conversationsRef.current = convs.map((c) => c?._id);
             }
             for (const id of conversationsRef.current) {
               if (!joinedConversationsRef.current.has(id)) {
@@ -143,10 +143,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const participantIds = (conversation.participants || []).map((p: any) => (typeof p === "string" ? p : p?._id));
               if (userIdRef.current && participantIds.includes(userIdRef.current)) {
-                conversationsRef.current = Array.from(new Set([...conversationsRef.current, conversation._id]));
-                if (!joinedConversationsRef.current.has(conversation._id)) {
-                  websocketClient.joinConversation(conversation._id);
-                  joinedConversationsRef.current.add(conversation._id);
+                conversationsRef.current = Array.from(new Set([...conversationsRef.current, conversation?._id]));
+                if (!joinedConversationsRef.current.has(conversation?._id)) {
+                  websocketClient.joinConversation(conversation?._id);
+                  joinedConversationsRef.current.add(conversation?._id);
                 }
               }
             } catch (err) {
@@ -160,7 +160,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               try {
                 const { conversation, addedUserId } = data;
                 if (userIdRef.current && addedUserId === userIdRef.current && conversation?._id) {
-                  const id = conversation._id;
+                  const id = conversation?._id;
                   conversationsRef.current = Array.from(new Set([...conversationsRef.current, id]));
                   if (!joinedConversationsRef.current.has(id)) {
                     websocketClient.joinConversation(id);
@@ -179,7 +179,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               try {
                 const { conversation, removedUserId } = data;
                 if (userIdRef.current && removedUserId === userIdRef.current && conversation?._id) {
-                  const id = conversation._id;
+                  const id = conversation?._id;
                   joinedConversationsRef.current.delete(id);
                   conversationsRef.current = conversationsRef.current.filter((cid) => cid !== id);
                   websocketClient.leaveConversation(id);

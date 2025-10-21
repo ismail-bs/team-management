@@ -73,7 +73,7 @@ export function ScheduleMeetingDialog({ open, onOpenChange, onSubmit }: Schedule
       const users = response.data || [];
       
       const mappedMembers = users.map((user: ApiUser) => ({
-        value: user._id,
+        value: user?._id,
         label: `${user.firstName} ${user.lastName}`,
       }));
       

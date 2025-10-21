@@ -46,20 +46,20 @@ export class AuthService {
     });
 
     const tokens = await this.generateTokens(
-      user._id.toString(),
+      user?._id?.toString(),
       user.email,
       user.role,
     );
     await this.usersService.updateRefreshToken(
-      user._id.toString(),
+      user?._id?.toString(),
       tokens.refreshToken,
     );
-    await this.usersService.updateLastLogin(user._id.toString());
+    await this.usersService.updateLastLogin(user?._id?.toString());
 
     return {
       ...tokens,
       user: {
-        id: user._id.toString(),
+        id: user?._id?.toString(),
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -87,7 +87,7 @@ export class AuthService {
       throw new UnauthorizedException('Account is not active');
     }
 
-    const userId = user._id.toString();
+    const userId = user?._id?.toString();
 
     const tokens = await this.generateTokens(userId, user.email, user.role);
     await this.usersService.updateRefreshToken(userId, tokens.refreshToken);
@@ -118,7 +118,7 @@ export class AuthService {
     }
 
     // Generate invite token
-    const inviteToken = crypto.randomBytes(32).toString('hex');
+    const inviteToken = crypto.randomBytes(32)?.toString('hex');
     const inviteExpires = new Date();
     inviteExpires.setHours(inviteExpires.getHours() + 24); // 24 hours expiry
 
@@ -127,14 +127,14 @@ export class AuthService {
       email: inviteUserDto.email,
       firstName: inviteUserDto.firstName,
       lastName: inviteUserDto.lastName,
-      password: crypto.randomBytes(16).toString('hex'), // Temporary password
+      password: crypto.randomBytes(16)?.toString('hex'), // Temporary password
       role: inviteUserDto.role,
       department: inviteUserDto.department,
       status: UserStatus.PENDING,
     });
 
     await this.usersService.setInviteToken(
-      user._id.toString(),
+      user?._id?.toString(),
       inviteToken,
       inviteExpires,
     );
@@ -180,22 +180,22 @@ export class AuthService {
     }
 
     // Update user with new password and activate account
-    const updatedUser = await this.usersService.update(user._id.toString(), {
+    const updatedUser = await this.usersService.update(user?._id?.toString(), {
       password: acceptInviteDto.password,
       phone: acceptInviteDto.phone,
       location: acceptInviteDto.location,
       status: UserStatus.ACTIVE,
     });
 
-    await this.usersService.clearInviteToken(user._id.toString());
+    await this.usersService.clearInviteToken(user?._id?.toString());
 
     const tokens = await this.generateTokens(
-      updatedUser._id.toString(),
+      updatedUser?._id?.toString(),
       updatedUser.email,
       updatedUser.role,
     );
     await this.usersService.updateRefreshToken(
-      updatedUser._id.toString(),
+      updatedUser?._id?.toString(),
       tokens.refreshToken,
     );
 
@@ -216,14 +216,14 @@ export class AuthService {
     if (updatedUser.department) {
       try {
         const deptConversation = await this.chatService.addUserToDepartmentChat(
-          updatedUser._id.toString(),
-          updatedUser.department.toString(),
+          updatedUser?._id?.toString(),
+          updatedUser.department?.toString(),
         );
 
         if (deptConversation) {
           // Send welcome message to department chat
           await this.chatService.sendSystemMessage(
-            deptConversation._id.toString(),
+            deptConversation?._id?.toString(),
             `👋 ${updatedUser.firstName} ${updatedUser.lastName} has joined the ${updatedUser.department} team! Welcome aboard!`,
           );
           this.logger.log(
@@ -241,7 +241,7 @@ export class AuthService {
     return {
       ...tokens,
       user: {
-        id: updatedUser._id.toString(),
+        id: updatedUser?._id?.toString(),
         email: updatedUser.email,
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
@@ -261,7 +261,7 @@ export class AuthService {
     }
 
     const isValid = await this.usersService.validateRefreshToken(
-      user._id.toString(),
+      user?._id?.toString(),
       refreshToken,
     );
     if (!isValid) {
@@ -269,12 +269,12 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(
-      user._id.toString(),
+      user?._id?.toString(),
       user.email,
       user.role,
     );
     await this.usersService.updateRefreshToken(
-      user._id.toString(),
+      user?._id?.toString(),
       tokens.refreshToken,
     );
 

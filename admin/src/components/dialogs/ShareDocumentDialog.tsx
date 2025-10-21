@@ -90,14 +90,14 @@ export function ShareDocumentDialog({
             ) : (
               <div className="max-h-[300px] overflow-y-auto border rounded-lg p-4 space-y-3">
                 {users.map(user => (
-                  <div key={user._id} className="flex items-center space-x-2">
+                  <div key={user?._id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={`user-${user._id}`}
-                      checked={selectedUserIds.includes(user._id)}
-                      onCheckedChange={() => handleToggleUser(user._id)}
+                      id={`user-${user?._id}`}
+                      checked={selectedUserIds.includes(user?._id)}
+                      onCheckedChange={() => handleToggleUser(user?._id)}
                     />
                     <Label 
-                      htmlFor={`user-${user._id}`} 
+                      htmlFor={`user-${user?._id}`} 
                       className="flex-1 cursor-pointer"
                     >
                       <div className="flex items-center justify-between">

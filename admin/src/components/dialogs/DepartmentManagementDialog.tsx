@@ -141,7 +141,7 @@ export function DepartmentManagementDialog({
           description: "Department created successfully"
         });
       } else if (editingDept) {
-        await apiClient.updateDepartment(editingDept._id, {
+        await apiClient.updateDepartment(editingDept?._id, {
           name: formData.name.trim()
         });
         toast({
@@ -188,7 +188,7 @@ export function DepartmentManagementDialog({
 
     try {
       setLoading(true);
-      await apiClient.deleteDepartment(deletingDept._id);
+      await apiClient.deleteDepartment(deletingDept?._id);
       
       toast({
         title: "Success",
@@ -299,7 +299,7 @@ export function DepartmentManagementDialog({
                   <div className="space-y-2">
                     {departments.map((dept) => (
                       <Card
-                        key={dept._id}
+                        key={dept?._id}
                         className="hover:shadow-md transition-all border-l-4 border-l-blue-500"
                       >
                         <CardContent className="p-4">

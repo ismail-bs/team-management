@@ -75,7 +75,7 @@ export class ProjectsController {
       req.user.sub,
     );
 
-    return this.projectsService.findByIdWithResponse(project._id.toString());
+    return this.projectsService.findByIdWithResponse(project?._id?.toString());
   }
 
   @Get()
@@ -183,7 +183,7 @@ export class ProjectsController {
       req.user.role,
     );
 
-    return this.projectsService.findByIdWithResponse(project._id.toString());
+    return this.projectsService.findByIdWithResponse(project?._id?.toString());
   }
 
   @Delete(':id')
@@ -248,7 +248,7 @@ export class ProjectsController {
       req.user.role,
     );
 
-    return this.projectsService.findByIdWithResponse(project._id.toString());
+    return this.projectsService.findByIdWithResponse(project?._id?.toString());
   }
 
   @Delete(':id/team-members')
@@ -288,6 +288,6 @@ export class ProjectsController {
       req.user.role,
     );
 
-    return this.projectsService.findByIdWithResponse(project._id.toString());
+    return this.projectsService.findByIdWithResponse(project?._id?.toString());
   }
 }

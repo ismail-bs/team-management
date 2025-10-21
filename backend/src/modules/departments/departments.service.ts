@@ -56,7 +56,7 @@ export class DepartmentsService {
       `Department created: ${savedDepartment.name}, isActive: ${savedDepartment.isActive}`,
     );
 
-    return this.findById(savedDepartment._id.toString());
+    return this.findById(savedDepartment?._id?.toString());
   }
 
   async findAll(): Promise<DepartmentDocument[]> {
@@ -71,11 +71,11 @@ export class DepartmentsService {
     await Promise.all(
       departments.map(async (dept) => {
         const count = await this.userModel.countDocuments({
-          department: dept._id.toString(),
+          department: dept?._id?.toString(),
         });
 
         if (dept.employeeCount !== count) {
-          await this.departmentModel.findByIdAndUpdate(dept._id, {
+          await this.departmentModel.findByIdAndUpdate(dept?._id, {
             employeeCount: count,
           });
           // Reflect the updated count in the response
@@ -173,7 +173,7 @@ export class DepartmentsService {
       `Department updated successfully: ${updated.name}, isActive: ${updated.isActive}`,
     );
 
-    return this.findById(updated._id.toString());
+    return this.findById(updated?._id?.toString());
   }
 
   async remove(id: string, userId: string): Promise<void> {

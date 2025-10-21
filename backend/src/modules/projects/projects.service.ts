@@ -84,14 +84,14 @@ export class ProjectsService implements IProjectService {
           title: `${savedProject.name} - Team Chat`,
           type: ConversationType.PROJECT,
           participants,
-          project: savedProject._id.toString(),
+          project: savedProject?._id?.toString(),
         },
         userId,
       );
 
       // Send initial system message
       await this.chatService.sendSystemMessage(
-        conversation._id.toString(),
+        conversation?._id?.toString(),
         `🚀 Project "${savedProject.name}" has been created! Use this channel to discuss project-related topics with your team.`,
       );
 
@@ -323,7 +323,7 @@ export class ProjectsService implements IProjectService {
     // Check permissions - only project manager or admin can update
     if (
       userRole !== Role.ADMIN &&
-      project.projectManager.toString() !== userId
+      project.projectManager?.toString() !== userId
     ) {
       throw new ForbiddenException(
         'Only project manager or admin can update this project',
@@ -428,7 +428,7 @@ export class ProjectsService implements IProjectService {
     // Check permissions - only project manager or admin can delete
     if (
       userRole !== Role.ADMIN &&
-      project.projectManager.toString() !== userId
+      project.projectManager?.toString() !== userId
     ) {
       throw new ForbiddenException(
         'Only project manager or admin can delete this project',
@@ -465,7 +465,7 @@ export class ProjectsService implements IProjectService {
     // Permission check: Only project manager or admin can add team members
     if (
       requesterRole !== Role.ADMIN &&
-      project.projectManager.toString() !== requesterId
+      project.projectManager?.toString() !== requesterId
     ) {
       throw new ForbiddenException(
         'Only project manager or admin can add team members',
@@ -473,7 +473,7 @@ export class ProjectsService implements IProjectService {
     }
 
     // Prevent duplicate team member additions
-    if (project.teamMembers.some((member) => member.toString() === userId)) {
+    if (project.teamMembers.some((member) => member?.toString() === userId)) {
       throw new BadRequestException('User is already a team member');
     }
 
@@ -501,7 +501,7 @@ export class ProjectsService implements IProjectService {
 
       if (projectConv) {
         await this.chatService.addParticipant(
-          projectConv._id.toString(),
+          projectConv?._id?.toString(),
           { userId },
           requesterId,
         );
@@ -541,7 +541,7 @@ export class ProjectsService implements IProjectService {
     // Check permissions
     if (
       requesterRole !== Role.ADMIN &&
-      project.projectManager.toString() !== requesterId
+      project.projectManager?.toString() !== requesterId
     ) {
       throw new ForbiddenException(
         'Only project manager or admin can remove team members',
@@ -549,7 +549,7 @@ export class ProjectsService implements IProjectService {
     }
 
     // Cannot remove project manager
-    if (project.projectManager.toString() === userId) {
+    if (project.projectManager?.toString() === userId) {
       throw new BadRequestException('Cannot remove project manager from team');
     }
 
@@ -622,7 +622,7 @@ export class ProjectsService implements IProjectService {
 
     const projectsByStatus = Object.values(ProjectStatus).reduce(
       (acc, status) => {
-        acc[status] = statusStats.find((s) => s._id === status)?.count || 0;
+        acc[status] = statusStats.find((s) => s?._id === status)?.count || 0;
         return acc;
       },
       {} as Record<ProjectStatus, number>,
@@ -631,7 +631,7 @@ export class ProjectsService implements IProjectService {
     const projectsByPriority = Object.values(Priority).reduce(
       (acc, priority) => {
         acc[priority] =
-          priorityStats.find((p) => p._id === priority)?.count || 0;
+          priorityStats.find((p) => p?._id === priority)?.count || 0;
         return acc;
       },
       {} as Record<Priority, number>,
@@ -642,7 +642,7 @@ export class ProjectsService implements IProjectService {
       active: activeProjects,
       completed: completedProjects,
       onHold:
-        statusStats.find((s) => s._id === ProjectStatus.ON_HOLD)?.count || 0,
+        statusStats.find((s) => s?._id === ProjectStatus.ON_HOLD)?.count || 0,
       overdue: overdueProjects,
       projectsByStatus,
       projectsByPriority,
@@ -767,16 +767,16 @@ export class ProjectsService implements IProjectService {
       taskCount,
       completedTaskCount,
       budget: project?.budget,
-      spentBudget: project.spentBudget,
-      progress: project.progress,
+      spentBudget: project?.spentBudget,
+      progress: project?.progress,
       tags: project?.tags,
-      clientName: project.clientName,
+      clientName: project?.clientName,
       clientEmail: project?.clientEmail,
-      notes: project.notes,
-      isActive: project.isActive,
+      notes: project?.notes,
+      isActive: project?.isActive,
       createdAt: project?.createdAt?.toISOString(),
       updatedAt: project?.updatedAt?.toISOString(),
-      completedAt: project.completedAt?.toISOString(),
+      completedAt: project?.completedAt?.toISOString(),
       archivedAt: project?.archivedAt?.toISOString(),
     };
   }

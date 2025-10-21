@@ -134,7 +134,7 @@ export class MeetingsService {
       // Don't fail meeting creation if email sending fails
     }
 
-    return this.findById(savedMeeting._id.toString());
+    return this.findById(savedMeeting?._id?.toString());
   }
 
   async findAll(
@@ -250,7 +250,7 @@ export class MeetingsService {
     const meeting = await this.findById(id);
 
     // Check if user is organizer or has permission to update
-    if (!meeting.organizer || meeting.organizer._id.toString() !== userId) {
+    if (!meeting.organizer || meeting.organizer?._id?.toString() !== userId) {
       throw new ForbiddenException(
         'Only the organizer can update this meeting',
       );
@@ -277,7 +277,7 @@ export class MeetingsService {
       ) {
         const participants =
           updateMeetingDto.participants ||
-          meeting.participants.map((p) => p._id.toString());
+          meeting.participants.map((p) => p?._id?.toString());
         await this.checkSchedulingConflicts(
           participants,
           startTime,
@@ -310,7 +310,7 @@ export class MeetingsService {
 
       // Update participant responses for new participants
       const existingParticipants = meeting.participantResponses.map((pr) =>
-        pr.userId.toString(),
+        pr.userId?.toString(),
       );
       const newParticipants = updateMeetingDto.participants.filter(
         (p) => !existingParticipants.includes(p),
@@ -355,7 +355,7 @@ export class MeetingsService {
     const meeting = await this.findById(id);
 
     // Check if user is organizer
-    if (meeting.organizer._id.toString() !== userId) {
+    if (meeting.organizer?._id?.toString() !== userId) {
       throw new ForbiddenException(
         'Only the organizer can delete this meeting',
       );
@@ -373,7 +373,7 @@ export class MeetingsService {
 
     // Check if user is a participant
     const isParticipant = meeting.participants.some(
-      (p) => p._id.toString() === userId,
+      (p) => p?._id?.toString() === userId,
     );
     if (!isParticipant) {
       throw new ForbiddenException('You are not a participant in this meeting');
@@ -381,7 +381,7 @@ export class MeetingsService {
 
     // Update participant response
     const responseIndex = meeting.participantResponses.findIndex(
-      (pr) => pr.userId.toString() === userId,
+      (pr) => pr.userId?.toString() === userId,
     );
 
     const validStatus = responseDto.status as ParticipantStatus;
@@ -404,18 +404,25 @@ export class MeetingsService {
   async getUpcomingMeetings(
     userId: string,
     limit: number = 5,
+    userRole?: string,
   ): Promise<MeetingDocument[]> {
     const now = new Date();
 
+    const filter: Record<string, unknown> = {
+      startTime: { $gte: now },
+      status: { $in: ['scheduled', 'in-progress'] },
+    };
+
+    // Admin users can see all upcoming meetings, others only see their own
+    if (userRole !== 'admin') {
+      filter.$or = [
+        { organizer: new Types.ObjectId(userId) },
+        { participants: new Types.ObjectId(userId) },
+      ];
+    }
+
     return this.meetingModel
-      .find({
-        $or: [
-          { organizer: new Types.ObjectId(userId) },
-          { participants: new Types.ObjectId(userId) },
-        ],
-        startTime: { $gte: now },
-        status: { $in: ['scheduled', 'in-progress'] },
-      })
+      .find(filter)
       .populate('participants', 'firstName lastName email avatar')
       .populate('organizer', 'firstName lastName email avatar')
       .populate('project', 'name')

@@ -298,7 +298,7 @@ export default function Dashboard() {
               {projects.length > 0 ? (
                 projects.map((project) => (
                   <div 
-                    key={project._id}
+                    key={project?._id}
                     onClick={() => {
                       setSelectedProject(project);
                       setEditProjectOpen(true);
@@ -321,7 +321,7 @@ export default function Dashboard() {
                           : (project.endDate ? new Date(project.endDate).toLocaleDateString() : 'No due date')
                       }
                       teamMembers={project.teamMembers.map(m => ({
-                        id: m._id,
+                        id: m?._id,
                         name: `${m.firstName} ${m.lastName}`
                       }))}
                       priority={
@@ -366,7 +366,7 @@ export default function Dashboard() {
                       
                       return (
                         <div 
-                          key={meeting._id} 
+                          key={meeting?._id} 
                           className="p-3 border rounded-lg hover:shadow-md transition-all cursor-pointer bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-900 dark:to-blue-950/20"
                           onClick={() => navigate('/meetings')}
                         >

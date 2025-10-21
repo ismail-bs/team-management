@@ -33,8 +33,8 @@ const generateTimeOptions = () => {
   const times = [];
   for (let hour = 0; hour < 24; hour++) {
     for (let minute = 0; minute < 60; minute += 30) {
-      const hourStr = hour.toString().padStart(2, '0');
-      const minuteStr = minute.toString().padStart(2, '0');
+      const hourStr = hour?.toString().padStart(2, '0');
+      const minuteStr = minute?.toString().padStart(2, '0');
       const time24 = `${hourStr}:${minuteStr}`;
       
       const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
@@ -80,7 +80,7 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onSubmit }: Edi
         location: meeting.location || "",
         meetingLink: meeting.meetingLink || "",
         agenda: meeting.agenda || "",
-        participants: meeting.participants?.map(p => p._id) || [],
+        participants: meeting.participants?.map(p => p?._id) || [],
       });
       setErrors({});
     }
@@ -336,18 +336,18 @@ export function EditMeetingDialog({ open, onOpenChange, meeting, onSubmit }: Edi
                 <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20">
                   {meeting.participants.map((participant) => (
                     <Badge
-                      key={participant._id}
-                      variant={formData.participants.includes(participant._id) ? "default" : "secondary"}
+                      key={participant?._id}
+                      variant={formData.participants.includes(participant?._id) ? "default" : "secondary"}
                       className="flex items-center gap-1 cursor-pointer"
                       onClick={() => {
-                        const newParticipants = formData.participants.includes(participant._id)
-                          ? formData.participants.filter(id => id !== participant._id)
-                          : [...formData.participants, participant._id];
+                        const newParticipants = formData.participants.includes(participant?._id)
+                          ? formData.participants.filter(id => id !== participant?._id)
+                          : [...formData.participants, participant?._id];
                         setFormData(prev => ({ ...prev, participants: newParticipants }));
                       }}
                     >
                       {participant.firstName} {participant.lastName}
-                      {formData.participants.includes(participant._id) && (
+                      {formData.participants.includes(participant?._id) && (
                         <X className="h-3 w-3 ml-1" />
                       )}
                     </Badge>

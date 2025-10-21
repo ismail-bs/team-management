@@ -126,9 +126,9 @@ export class ChatGateway
           `🔗 Found ${conversations.length} conversations for user ${client.userId}`,
         );
         for (const conversation of conversations) {
-          await client.join(`conversation:${conversation._id}`);
+          await client.join(`conversation:${conversation?._id}`);
           this.logger.log(
-            `🔗 Joined conversation room: ${conversation._id} (type: ${conversation.type})`,
+            `🔗 Joined conversation room: ${conversation?._id} (type: ${conversation.type})`,
           );
         }
       } catch (error) {

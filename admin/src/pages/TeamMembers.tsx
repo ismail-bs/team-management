@@ -160,13 +160,13 @@ export default function TeamMembers() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 md:gap-4">
           {departments.map((dept) => (
             <Card 
-              key={dept._id} 
+              key={dept?._id} 
               className="cursor-pointer transition-all hover:shadow-md hover:scale-105"
-              onClick={() => setSelectedDepartment(selectedDepartment === dept._id ? 'all' : dept._id)}
+              onClick={() => setSelectedDepartment(selectedDepartment === dept?._id ? 'all' : dept?._id)}
             >
               <CardContent className="p-4 text-center">
                 <Briefcase className={`h-6 w-6 mx-auto mb-2 ${
-                  selectedDepartment === dept._id ? 'text-blue-600' : 'text-muted-foreground'
+                  selectedDepartment === dept?._id ? 'text-blue-600' : 'text-muted-foreground'
                 }`} />
                 <p className="text-xs font-medium truncate">{dept.name}</p>
                 <p className="text-lg font-bold">{dept.employeeCount}</p>
@@ -195,7 +195,7 @@ export default function TeamMembers() {
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
                   {departments.map(dept => (
-                    <SelectItem key={dept._id} value={dept._id}>
+                    <SelectItem key={dept?._id} value={dept?._id}>
                       {dept.name} ({dept.employeeCount})
                     </SelectItem>
                   ))}
@@ -213,7 +213,7 @@ export default function TeamMembers() {
               const statusColor = member.status === 'active' ? 'bg-green-500' : 'bg-gray-400';
               
               return (
-                <Card key={member._id} className="hover:shadow-lg transition-shadow">
+                <Card key={member?._id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="text-center pb-3">
                     <div className="relative mx-auto mb-3">
                       <Avatar className="h-20 w-20">

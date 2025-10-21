@@ -119,7 +119,7 @@ export default function Departments() {
           description: "Department created successfully"
         });
       } else if (editingDept) {
-        await apiClient.updateDepartment(editingDept._id, {
+        await apiClient.updateDepartment(editingDept?._id, {
           name: formData.name.trim()
         });
         toast({
@@ -165,7 +165,7 @@ export default function Departments() {
 
     try {
       setLoading(true);
-      await apiClient.deleteDepartment(deletingDept._id);
+      await apiClient.deleteDepartment(deletingDept?._id);
       
       toast({
         title: "Success",
@@ -298,7 +298,7 @@ export default function Departments() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredDepartments.map((dept) => (
                 <Card
-                  key={dept._id}
+                  key={dept?._id}
                   className="hover:shadow-lg transition-all border-l-4 border-l-blue-500"
                 >
                   <CardContent className="p-6">

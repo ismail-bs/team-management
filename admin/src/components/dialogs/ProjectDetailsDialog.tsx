@@ -162,7 +162,7 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
 
   const handleRemoveTeamMember = async (memberId: string) => {
     try {
-      const projectId = (project as any)._id ?? (project as any).id;
+      const projectId = (project as any)?._id ?? (project as any).id;
       if (!projectId) {
         toast({
           title: "Error",
@@ -194,7 +194,7 @@ export function ProjectDetailsDialog({ children, project }: ProjectDetailsDialog
 
   const handleDeleteProject = async () => {
     try {
-      const projectId = (project as any)._id ?? (project as any).id;
+      const projectId = (project as any)?._id ?? (project as any).id;
       if (!projectId) {
         toast({
           title: "Error",

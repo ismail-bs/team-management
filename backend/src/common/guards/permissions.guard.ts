@@ -135,7 +135,7 @@ export class PermissionsGuard implements CanActivate {
     // Member: Only projects they're assigned to
     if (userRole === 'member') {
       return project.teamMembers?.some(
-        (memberId: any) => memberId.toString() === userId,
+        (memberId: any) => memberId?.toString() === userId,
       );
     }
 
@@ -164,7 +164,7 @@ export class PermissionsGuard implements CanActivate {
     // Member: Tasks in their projects (read) or assigned to them (update)
     if (userRole === 'member') {
       const isInProject = project.teamMembers?.some(
-        (memberId: any) => memberId.toString() === userId,
+        (memberId: any) => memberId?.toString() === userId,
       );
 
       // For update operations, must be assigned to the task
@@ -190,7 +190,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // If document is shared with user
-    if (document.sharedWith?.some((id: any) => id.toString() === userId)) {
+    if (document.sharedWith?.some((id: any) => id?.toString() === userId)) {
       return true;
     }
 
@@ -206,7 +206,7 @@ export class PermissionsGuard implements CanActivate {
       // Member: Documents in their projects
       if (userRole === 'member') {
         return project.teamMembers?.some(
-          (memberId: any) => memberId.toString() === userId,
+          (memberId: any) => memberId?.toString() === userId,
         );
       }
     }
@@ -235,7 +235,7 @@ export class PermissionsGuard implements CanActivate {
     // Member: Meetings they're invited to (read only)
     if (userRole === 'member') {
       return meeting.participants?.some(
-        (participantId: any) => participantId.toString() === userId,
+        (participantId: any) => participantId?.toString() === userId,
       );
     }
 

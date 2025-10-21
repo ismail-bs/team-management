@@ -70,7 +70,7 @@ export function SelectTeamMemberDialog({
       const users: ApiUser[] = response.data || [];
       
       // Filter out current user - you can't DM yourself!
-      const otherUsers = users.filter(user => user._id !== currentUser?._id);
+      const otherUsers = users.filter(user => user?._id !== currentUser?._id);
       
       const mappedMembers: TeamMember[] = otherUsers.map(user => {
         const department: string = (typeof user.department === 'object' && user.department !== null)
@@ -78,7 +78,7 @@ export function SelectTeamMemberDialog({
           : (user.department ?? 'General');
 
         return {
-          id: user._id,
+          id: user?._id,
           name: `${user.firstName} ${user.lastName}`,
           status: user.status === 'active' ? 'online' : 'offline',
           role: user.role?.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Member',

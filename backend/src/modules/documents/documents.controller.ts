@@ -146,7 +146,7 @@ export class DocumentsController {
       mostDownloaded: mostDownloaded.map((item) => ({
         name: item.document.name,
         downloads: item.downloads,
-        id: item.document._id.toString(),
+        id: item.document?._id?.toString(),
       })),
     };
   }
@@ -259,9 +259,9 @@ export class DocumentsController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a document' })
+  @ApiOperation({ summary: 'Delete a document (Uploader or Admin)' })
   @ApiResponse({ status: 200, description: 'Document deleted successfully' })
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return await this.documentsService.remove(id, req.user.sub);
+    return await this.documentsService.remove(id, req.user.sub, req.user.role);
   }
 }

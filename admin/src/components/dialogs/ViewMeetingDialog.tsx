@@ -128,7 +128,7 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {meeting.participants.map((participant) => (
                 <div 
-                  key={participant._id} 
+                  key={participant?._id} 
                   className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
                   <Avatar className="h-10 w-10">

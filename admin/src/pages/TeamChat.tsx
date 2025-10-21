@@ -32,13 +32,13 @@ export default function TeamChat() {
     const ok = window.confirm('Delete this conversation and all messages? This cannot be undone.');
     if (!ok) return;
     try {
-      await apiClient.deleteConversation(selectedConversation._id);
-      const deletedId = selectedConversation._id;
+      await apiClient.deleteConversation(selectedConversation?._id);
+      const deletedId = selectedConversation?._id;
       websocketClient.leaveConversation(deletedId);
       setSelectedConversation(null);
       selectedConversationRef.current = null;
       setMessages([]);
-      setConversations(prev => prev.filter(c => c._id !== deletedId));
+      setConversations(prev => prev.filter(c => c?._id !== deletedId));
       toast({ title: 'Conversation deleted', description: 'This chat and its messages have been removed.' });
     } catch (err) {
       console.error('Failed to delete conversation', err);
@@ -67,13 +67,13 @@ export default function TeamChat() {
         return;
       }
 
-      if (selectedConversationRef.current && newMessage.conversation === selectedConversationRef.current._id) {
+      if (selectedConversationRef.current && newMessage.conversation === selectedConversationRef.current?._id) {
         setMessages(prev => {
-          const exists = prev.some(m => m._id === newMessage._id);
+          const exists = prev.some(m => m?._id === newMessage?._id);
           if (exists) return prev;
           return [...prev, newMessage];
         });
-        apiClient.markMessageAsRead(newMessage._id).catch(() => {});
+        apiClient.markMessageAsRead(newMessage?._id).catch(() => {});
       }
 
       updateConversationWithNewMessage(newMessage);
@@ -82,7 +82,7 @@ export default function TeamChat() {
     const onMessageUpdated = (data: { message?: Message }) => {
       const updated = data.message;
       if (!updated) return;
-      setMessages(prev => prev.map(m => (m._id === updated._id ? { ...m, ...updated } : m)));
+      setMessages(prev => prev.map(m => (m?._id === updated?._id ? { ...m, ...updated } : m)));
       updateConversationWithNewMessage(updated);
     };
 
@@ -115,15 +115,15 @@ export default function TeamChat() {
     const onConversationUpdated = (data: { conversation?: Conversation }) => {
       const updatedConv = data.conversation;
       if (!updatedConv) return;
-      setConversations(prev => prev.map(conv => (conv._id === updatedConv._id ? updatedConv : conv)));
-      if (selectedConversationRef.current?._id === updatedConv._id) {
+      setConversations(prev => prev.map(conv => (conv?._id === updatedConv?._id ? updatedConv : conv)));
+      if (selectedConversationRef.current?._id === updatedConv?._id) {
         setSelectedConversation(updatedConv);
         selectedConversationRef.current = updatedConv;
       }
     };
 
     const onMessageDeleted = (deletedId: string) => {
-      setMessages(prev => prev.filter(m => m._id !== deletedId));
+      setMessages(prev => prev.filter(m => m?._id !== deletedId));
     };
 
     websocketClient.on('message:new', onMessageNew);
@@ -170,8 +170,8 @@ export default function TeamChat() {
       const isOwnMessage = senderId === user?._id;
 
       const updated = prev.map(conv => {
-        if (conv._id === newMessage.conversation) {
-          const shouldIncrementUnread = !isOwnMessage && (!selectedConversationRef.current || selectedConversationRef.current._id !== conv._id);
+        if (conv?._id === newMessage.conversation) {
+          const shouldIncrementUnread = !isOwnMessage && (!selectedConversationRef.current || selectedConversationRef.current?._id !== conv?._id);
           return {
             ...conv,
             lastMessage: newMessage,
@@ -207,10 +207,10 @@ export default function TeamChat() {
       const convsWithUnread = await Promise.all(
         sortedConvs.map(async (c) => {
           try {
-            const { count } = await apiClient.getUnreadCount(c._id);
+            const { count } = await apiClient.getUnreadCount(c?._id);
             return { ...c, unreadCount: count } as Conversation;
           } catch (err) {
-            console.error('Failed to get unread count for conversation', c._id, err);
+            console.error('Failed to get unread count for conversation', c?._id, err);
             return { ...c, unreadCount: c.unreadCount || 0 } as Conversation;
           }
         })
@@ -239,26 +239,26 @@ export default function TeamChat() {
     try {
       // Leave previous conversation room
       if (selectedConversation) {
-        websocketClient.leaveConversation(selectedConversation._id);
+        websocketClient.leaveConversation(selectedConversation?._id);
       }
 
       setSelectedConversation(conversation);
       selectedConversationRef.current = conversation; // Update ref for WebSocket callbacks
       setMessages([]);
-      setActiveConversationId(conversation._id);
+      setActiveConversationId(conversation?._id);
       
       // Join new conversation room via WebSocket
-      websocketClient.joinConversation(conversation._id);
-      console.log('🔗 Joined conversation room:', conversation._id);
+      websocketClient.joinConversation(conversation?._id);
+      console.log('🔗 Joined conversation room:', conversation?._id);
       
       // Load messages once via API
-      await loadMessages(conversation._id);
+      await loadMessages(conversation?._id);
       // Clear unread for this conversation locally
-      setConversations(prev => prev.map(c => c._id === conversation._id ? { ...c, unreadCount: 0 } : c));
+      setConversations(prev => prev.map(c => c?._id === conversation?._id ? { ...c, unreadCount: 0 } : c));
 
       // Mark conversation as read on backend
       try {
-        await apiClient.markConversationAsRead(conversation._id);
+        await apiClient.markConversationAsRead(conversation?._id);
       } catch (err) {
         console.error('Failed to mark conversation as read', err);
       }
@@ -305,7 +305,7 @@ export default function TeamChat() {
       // Create optimistic message
       const optimisticMessage: Message = {
         _id: tempId,
-        conversation: selectedConversation._id,
+        conversation: selectedConversation?._id,
         sender: user!,
         content: messageContent,
         messageType: 'text',
@@ -319,7 +319,7 @@ export default function TeamChat() {
       scrollToBottom();
 
       // Send via API (backend will emit WebSocket event)
-      const newMessage = await apiClient.sendMessage(selectedConversation._id, {
+      const newMessage = await apiClient.sendMessage(selectedConversation?._id, {
         content: messageContent,
         messageType: 'text'
       });
@@ -328,7 +328,7 @@ export default function TeamChat() {
 
       // Replace optimistic with real message (has real _id, timestamp, etc.)
       setMessages(prev => {
-        const updated = prev.map(m => m._id === tempId ? newMessage : m);
+        const updated = prev.map(m => m?._id === tempId ? newMessage : m);
         console.log('🔄 Replaced optimistic message with real message');
         return updated;
       });
@@ -340,7 +340,7 @@ export default function TeamChat() {
       console.error('❌ Error sending message:', error);
       
       // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m._id !== tempId));
+      setMessages(prev => prev.filter(m => m?._id !== tempId));
       
       toast({
         title: "Error",
@@ -358,7 +358,7 @@ export default function TeamChat() {
   const handleDeleteMessage = async (messageId: string) => {
     try {
       // Optimistically remove the message
-      setMessages(prev => prev.filter(m => m._id !== messageId));
+      setMessages(prev => prev.filter(m => m?._id !== messageId));
       await apiClient.deleteMessage(messageId);
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -369,7 +369,7 @@ export default function TeamChat() {
       });
       // Reload messages if deletion failed
       if (selectedConversation) {
-        await loadMessages(selectedConversation._id);
+        await loadMessages(selectedConversation?._id);
       }
     }
   };
@@ -386,7 +386,7 @@ export default function TeamChat() {
       const conversation = await apiClient.createConversation({
         title: channelData.name,
         type: 'group',
-        participants: user ? [user._id] : [],
+        participants: user ? [user?._id] : [],
       });
       
       setConversations(prev => [conversation, ...prev]);
@@ -424,7 +424,7 @@ export default function TeamChat() {
       // Check if conversation exists
       const existingConv = conversations.find(conv => 
         conv.type === 'direct' && 
-        conv.participants.some(p => p._id === member.id)
+        conv.participants.some(p => p?._id === member.id)
       );
 
       if (existingConv) {
@@ -441,7 +441,7 @@ export default function TeamChat() {
       // Create new DM
       const conversation = await apiClient.createConversation({
         type: 'direct',
-        participants: user ? [user._id, member.id] : [member.id],
+        participants: user ? [user?._id, member.id] : [member.id],
       });
       
       setConversations(prev => [conversation, ...prev]);
@@ -479,7 +479,7 @@ export default function TeamChat() {
     if (displayName) return displayName;
     
     if (conv.type === 'direct') {
-      const otherUser = conv.participants.find(p => p._id !== user?._id);
+      const otherUser = conv.participants.find(p => p?._id !== user?._id);
       return otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : 'Direct Message';
     }
     
@@ -488,7 +488,7 @@ export default function TeamChat() {
 
   const getConversationAvatar = (conv: Conversation) => {
     if (conv.type === 'direct') {
-      const otherUser = conv.participants.find(p => p._id !== user?._id);
+      const otherUser = conv.participants.find(p => p?._id !== user?._id);
       return otherUser?.avatar;
     }
     return undefined;
@@ -496,7 +496,7 @@ export default function TeamChat() {
 
   const getConversationInitials = (conv: Conversation) => {
     if (conv.type === 'direct') {
-      const otherUser = conv.participants.find(p => p._id !== user?._id);
+      const otherUser = conv.participants.find(p => p?._id !== user?._id);
       if (otherUser) {
         return `${otherUser.firstName?.[0] || ''}${otherUser.lastName?.[0] || ''}`.toUpperCase() || 'DM';
       }
@@ -557,10 +557,10 @@ export default function TeamChat() {
               <div className="divide-y">
                 {conversations.map((conv) => (
                   <div
-                    key={conv._id}
+                    key={conv?._id}
                     onClick={() => selectConversation(conv)}
                     className={`p-4 cursor-pointer transition-all border-l-4 ${
-                      selectedConversation?._id === conv._id 
+                      selectedConversation?._id === conv?._id 
                         ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 border-l-blue-600' 
                         : 'border-l-transparent hover:bg-muted/50 hover:border-l-gray-300'
                     }`}
@@ -596,9 +596,9 @@ export default function TeamChat() {
                           <span className="truncate">
                             {conv.lastMessage?.content || `${conv.participants.length} participant${conv.participants.length !== 1 ? 's' : ''}`}
                           </span>
-                          {(() => { const badgeCount = (unreadByConversation[conv._id] ?? conv.unreadCount ?? 0); return badgeCount > 0; })() && (
+                          {(() => { const badgeCount = (unreadByConversation[conv?._id] ?? conv.unreadCount ?? 0); return badgeCount > 0; })() && (
                             <span className="ml-auto inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 flex-shrink-0">
-                              {(unreadByConversation[conv._id] ?? conv.unreadCount ?? 0)}
+                              {(unreadByConversation[conv?._id] ?? conv.unreadCount ?? 0)}
                             </span>
                           )}
                         </p>
@@ -690,13 +690,13 @@ export default function TeamChat() {
                     {messages.map((message) => {
                       if (!message.sender) return null;
                       
-                      const isCurrentUser = message.sender._id === user?._id;
+                      const isCurrentUser = message.sender?._id === user?._id;
                       const senderInitials = `${message.sender.firstName?.[0] || ''}${message.sender.lastName?.[0] || ''}`.toUpperCase() || 'U';
                       const senderName = `${message.sender.firstName || ''} ${message.sender.lastName || ''}`.trim() || 'Unknown';
                        
                       return (
                         <div 
-                          key={message._id} 
+                          key={message?._id} 
                           className={`group flex gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
                         >
                           {!isCurrentUser && (

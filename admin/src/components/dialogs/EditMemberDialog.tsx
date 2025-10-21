@@ -133,7 +133,7 @@ export function EditMemberDialog({ open, onOpenChange, member, onUpdate, onDelet
               <SelectContent>
                 {departments.length > 0 ? (
                   departments.map((dept) => (
-                    <SelectItem key={dept._id} value={dept._id}>
+                    <SelectItem key={dept?._id} value={dept?._id}>
                       {dept.name}
                     </SelectItem>
                   ))
