@@ -279,14 +279,14 @@ export class ChatService {
     }
 
     if (
-      conversation.participants.some(
+      conversation?.participants?.some(
         (p) => p?.toString() === addParticipantDto.userId,
       )
     ) {
       throw new BadRequestException('User is already a participant');
     }
 
-    conversation.participants.push(
+    conversation?.participants?.push(
       new Types.ObjectId(addParticipantDto.userId),
     );
     conversation.lastActivity = new Date();
@@ -358,7 +358,7 @@ export class ChatService {
       }
     }
 
-    const participantIndex = conversation.participants.findIndex(
+    const participantIndex = conversation?.participants?.findIndex(
       (p) => p?.toString() === removeParticipantDto.userId,
     );
 
@@ -367,13 +367,13 @@ export class ChatService {
     }
 
     // Prevent removing the last participant
-    if (conversation.participants.length === 1) {
+    if (conversation?.participants?.length === 1) {
       throw new BadRequestException(
         'Cannot remove the last participant from the conversation',
       );
     }
 
-    conversation.participants.splice(participantIndex, 1);
+    conversation?.participants?.splice(participantIndex, 1);
     conversation.lastActivity = new Date();
 
     const savedConversation = await conversation.save();
@@ -798,12 +798,12 @@ export class ChatService {
       const conversation = await this.findOrCreateDepartmentChat(department);
 
       // Check if user is already a participant
-      const isParticipant = conversation.participants.some(
+      const isParticipant = conversation?.participants?.some(
         (p) => p?.toString() === userId,
       );
 
       if (!isParticipant) {
-        conversation.participants.push(new Types.ObjectId(userId));
+        conversation?.participants?.push(new Types.ObjectId(userId));
         await conversation.save();
       }
 

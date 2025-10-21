@@ -481,7 +481,7 @@ export class DocumentsService {
       }); // 1 hour
 
       // Update download statistics
-      document.downloadCount = (document.downloadCount || 0) + 1;
+      document.downloadCount = (document?.downloadCount || 0) + 1;
       document.lastDownloadedAt = new Date();
       document.lastDownloadedBy = new Types.ObjectId(userId);
       await document.save();
@@ -518,8 +518,8 @@ export class DocumentsService {
 
     // Check if user has access to the document
     const isUploader = document.uploadedBy?._id?.toString() === userId;
-    const isPublic = document.visibility === DocumentVisibility.PUBLIC;
-    const isSharedWithUser = document.sharedWith.some(
+    const isPublic = document?.visibility === DocumentVisibility.PUBLIC;
+    const isSharedWithUser = document?.sharedWith?.some(
       (sharedUserId) => sharedUserId?.toString() === userId,
     );
     const hasAccess = isUploader || isPublic || isSharedWithUser;
@@ -536,13 +536,14 @@ export class DocumentsService {
     }
 
     // Add new users to sharedWith array (avoid duplicates)
-    const existingSharedIds = document.sharedWith.map((id) => id?.toString());
+    const existingSharedIds =
+      document?.sharedWith?.map((id) => id?.toString()) || [];
     const newSharedIds = shareDocumentDto.userIds.filter(
       (id) => !existingSharedIds.includes(id),
     );
 
     if (newSharedIds.length > 0) {
-      document.sharedWith.push(
+      document?.sharedWith?.push(
         ...newSharedIds.map((id) => new Types.ObjectId(id)),
       );
 
@@ -571,8 +572,8 @@ export class DocumentsService {
               to: recipient.email,
               firstName: recipient.firstName,
               lastName: recipient.lastName,
-              documentName: document.name,
-              documentDescription: document.description,
+              documentName: document?.name,
+              documentDescription: document?.description,
               sharedByName: sharerName,
               documentUrl,
             });
@@ -616,7 +617,7 @@ export class DocumentsService {
       throw new ForbiddenException('Only the document uploader can unshare it');
     }
 
-    document.sharedWith = document.sharedWith.filter(
+    document.sharedWith = document?.sharedWith?.filter(
       (id) => id?.toString() !== targetUserId,
     );
 

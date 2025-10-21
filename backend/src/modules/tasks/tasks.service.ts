@@ -250,8 +250,8 @@ export class TasksService implements ITaskService {
     }
 
     // Delete all subtasks
-    if (task.subtasks && task.subtasks.length > 0) {
-      await this.taskModel.deleteMany({ _id: { $in: task.subtasks } });
+    if (task?.subtasks && task?.subtasks?.length > 0) {
+      await this.taskModel.deleteMany({ _id: { $in: task?.subtasks } });
     }
 
     // Remove this task from dependencies of other tasks
@@ -290,7 +290,7 @@ export class TasksService implements ITaskService {
   ): Promise<TaskDocument> {
     const task = await this.findById(taskId);
 
-    if (!task.comments || commentIndex >= task.comments.length) {
+    if (!task?.comments || commentIndex >= task?.comments?.length) {
       throw new NotFoundException('Comment not found');
     }
 
@@ -299,7 +299,7 @@ export class TasksService implements ITaskService {
       throw new ForbiddenException('You can only delete your own comments');
     }
 
-    task.comments.splice(commentIndex, 1);
+    task?.comments?.splice(commentIndex, 1);
     await task.save();
 
     return this.findById(taskId);

@@ -60,11 +60,11 @@ export class AuthService {
       ...tokens,
       user: {
         id: user?._id?.toString(),
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        status: user.status,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        role: user?.role,
+        status: user?.status,
       },
     };
   }
@@ -89,7 +89,7 @@ export class AuthService {
 
     const userId = user?._id?.toString();
 
-    const tokens = await this.generateTokens(userId, user.email, user.role);
+    const tokens = await this.generateTokens(userId, user?.email, user?.role);
     await this.usersService.updateRefreshToken(userId, tokens.refreshToken);
     await this.usersService.updateLastLogin(userId);
 
@@ -97,11 +97,11 @@ export class AuthService {
       ...tokens,
       user: {
         id: userId,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        status: user.status,
+        email: user?.email,
+        firstName: user?.firstName,
+        lastName: user?.lastName,
+        role: user?.role,
+        status: user?.status,
       },
     };
   }
@@ -143,7 +143,7 @@ export class AuthService {
     let invitedByName: string | undefined;
     try {
       const inviter = await this.usersService.findById(invitedBy);
-      invitedByName = `${inviter.firstName} ${inviter.lastName}`;
+      invitedByName = `${inviter?.firstName} ${inviter?.lastName}`;
     } catch (error) {
       this.logger.warn(`Could not find inviter details: ${error.message}`);
     }
@@ -191,8 +191,8 @@ export class AuthService {
 
     const tokens = await this.generateTokens(
       updatedUser?._id?.toString(),
-      updatedUser.email,
-      updatedUser.role,
+      updatedUser?.email,
+      updatedUser?.role,
     );
     await this.usersService.updateRefreshToken(
       updatedUser?._id?.toString(),
@@ -202,9 +202,9 @@ export class AuthService {
     // Send welcome email
     try {
       await this.emailService.sendWelcomeEmail({
-        to: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
+        to: updatedUser?.email,
+        firstName: updatedUser?.firstName,
+        lastName: updatedUser?.lastName,
       });
       this.logger.log(`Welcome email sent to ${updatedUser.email}`);
     } catch (error) {
@@ -224,7 +224,7 @@ export class AuthService {
           // Send welcome message to department chat
           await this.chatService.sendSystemMessage(
             deptConversation?._id?.toString(),
-            `👋 ${updatedUser.firstName} ${updatedUser.lastName} has joined the ${updatedUser.department} team! Welcome aboard!`,
+            `👋 ${updatedUser?.firstName} ${updatedUser?.lastName} has joined the ${updatedUser?.department} team! Welcome aboard!`,
           );
           this.logger.log(
             `User ${updatedUser.email} added to ${updatedUser.department} department chat`,
@@ -242,11 +242,11 @@ export class AuthService {
       ...tokens,
       user: {
         id: updatedUser?._id?.toString(),
-        email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        role: updatedUser.role,
-        status: updatedUser.status,
+        email: updatedUser?.email,
+        firstName: updatedUser?.firstName,
+        lastName: updatedUser?.lastName,
+        role: updatedUser?.role,
+        status: updatedUser?.status,
       },
     };
   }

@@ -250,7 +250,7 @@ export class MeetingsService {
     const meeting = await this.findById(id);
 
     // Check if user is organizer or has permission to update
-    if (!meeting.organizer || meeting.organizer?._id?.toString() !== userId) {
+    if (!meeting?.organizer || meeting?.organizer?._id?.toString() !== userId) {
       throw new ForbiddenException(
         'Only the organizer can update this meeting',
       );
@@ -260,10 +260,10 @@ export class MeetingsService {
     if (updateMeetingDto.startTime || updateMeetingDto.endTime) {
       const startTime = updateMeetingDto.startTime
         ? new Date(updateMeetingDto.startTime)
-        : meeting.startTime;
+        : meeting?.startTime;
       const endTime = updateMeetingDto.endTime
         ? new Date(updateMeetingDto.endTime)
-        : meeting.endTime;
+        : meeting?.endTime;
 
       if (startTime >= endTime) {
         throw new BadRequestException('End time must be after start time');
@@ -277,7 +277,8 @@ export class MeetingsService {
       ) {
         const participants =
           updateMeetingDto.participants ||
-          meeting.participants.map((p) => p?._id?.toString());
+          meeting?.participants?.map((p) => p?._id?.toString()) ||
+          [];
         await this.checkSchedulingConflicts(
           participants,
           startTime,
@@ -309,7 +310,7 @@ export class MeetingsService {
       );
 
       // Update participant responses for new participants
-      const existingParticipants = meeting.participantResponses.map((pr) =>
+      const existingParticipants = meeting?.participantResponses?.map((pr) =>
         pr.userId?.toString(),
       );
       const newParticipants = updateMeetingDto.participants.filter(
@@ -323,7 +324,7 @@ export class MeetingsService {
           respondedAt: null,
         }));
         updateData.participantResponses = [
-          ...meeting.participantResponses,
+          ...(meeting?.participantResponses || []),
           ...newResponses,
         ];
       }
@@ -355,7 +356,7 @@ export class MeetingsService {
     const meeting = await this.findById(id);
 
     // Check if user is organizer
-    if (meeting.organizer?._id?.toString() !== userId) {
+    if (meeting?.organizer?._id?.toString() !== userId) {
       throw new ForbiddenException(
         'Only the organizer can delete this meeting',
       );
@@ -372,7 +373,7 @@ export class MeetingsService {
     const meeting = await this.findById(id);
 
     // Check if user is a participant
-    const isParticipant = meeting.participants.some(
+    const isParticipant = meeting?.participants?.some(
       (p) => p?._id?.toString() === userId,
     );
     if (!isParticipant) {
@@ -380,7 +381,7 @@ export class MeetingsService {
     }
 
     // Update participant response
-    const responseIndex = meeting.participantResponses.findIndex(
+    const responseIndex = meeting?.participantResponses?.findIndex(
       (pr) => pr.userId?.toString() === userId,
     );
 
@@ -390,7 +391,7 @@ export class MeetingsService {
       meeting.participantResponses[responseIndex].status = validStatus;
       meeting.participantResponses[responseIndex].respondedAt = new Date();
     } else {
-      meeting.participantResponses.push({
+      meeting?.participantResponses?.push({
         userId: new Types.ObjectId(userId),
         status: validStatus,
         respondedAt: new Date(),
@@ -482,20 +483,20 @@ export class MeetingsService {
   private async createRecurringInstances(
     meeting: MeetingDocument,
   ): Promise<void> {
-    if (!meeting.isRecurring || !meeting.recurringFrequency) {
+    if (!meeting?.isRecurring || !meeting?.recurringFrequency) {
       return;
     }
 
     const instances: Array<Partial<MeetingDocument>> = [];
     const maxInstances = 52; // Limit to 52 instances (1 year for weekly)
-    const currentDate = new Date(meeting.startTime);
+    const currentDate = new Date(meeting?.startTime);
     const endDate =
-      meeting.recurringEndDate ||
+      meeting?.recurringEndDate ||
       new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year default
 
     for (let i = 0; i < maxInstances && currentDate <= endDate; i++) {
       // Calculate next occurrence
-      switch (meeting.recurringFrequency) {
+      switch (meeting?.recurringFrequency) {
         case 'daily':
           currentDate.setDate(currentDate.getDate() + 1);
           break;
@@ -512,23 +513,25 @@ export class MeetingsService {
 
       if (currentDate > endDate) break;
 
-      const duration = meeting.endTime.getTime() - meeting.startTime.getTime();
+      const duration =
+        (meeting?.endTime?.getTime() || 0) -
+        (meeting?.startTime?.getTime() || 0);
       const instanceEndTime = new Date(currentDate.getTime() + duration);
 
       instances.push({
-        title: meeting.title,
-        description: meeting.description,
+        title: meeting?.title,
+        description: meeting?.description,
         startTime: new Date(currentDate),
         endTime: instanceEndTime,
-        type: meeting.type,
-        location: meeting.location,
-        meetingLink: meeting.meetingLink,
-        agenda: meeting.agenda,
-        participants: meeting.participants,
-        organizer: meeting.organizer,
-        project: meeting.project,
+        type: meeting?.type,
+        location: meeting?.location,
+        meetingLink: meeting?.meetingLink,
+        agenda: meeting?.agenda,
+        participants: meeting?.participants,
+        organizer: meeting?.organizer,
+        project: meeting?.project,
         isRecurring: false, // Individual instances are not recurring
-        participantResponses: meeting.participantResponses.map((pr) => ({
+        participantResponses: meeting?.participantResponses?.map((pr) => ({
           userId: pr.userId,
           status: ParticipantStatus.PENDING,
           respondedAt: undefined,
