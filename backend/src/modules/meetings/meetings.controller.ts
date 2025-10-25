@@ -217,7 +217,7 @@ export class MeetingsController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<void> {
-    return this.meetingsService.remove(id, req.user.sub);
+    return this.meetingsService.remove(id, req.user.sub, req.user.role);
   }
 
   @Post(':id/respond')

@@ -175,13 +175,15 @@ export class TasksService implements ITaskService {
     id: string,
     updateTaskDto: UpdateTaskDto,
     userId: string,
+    userRole?: string,
   ): Promise<TaskDocument> {
     const task = await this.findById(id);
 
     // Check if user has permission to update (creator, assignee, or admin)
     const canUpdate =
       (task.createdBy && task.createdBy?._id?.toString() === userId) ||
-      (task.assignedTo && task.assignedTo?._id?.toString() === userId);
+      (task.assignedTo && task.assignedTo?._id?.toString() === userId) ||
+      userRole === 'admin';
 
     if (!canUpdate) {
       throw new ForbiddenException(
@@ -232,11 +234,14 @@ export class TasksService implements ITaskService {
     return this.findById(updatedTask?._id?.toString());
   }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string, userRole?: string): Promise<void> {
     const task = await this.findById(id);
 
-    // Check if user has permission to delete (creator only or admin)
-    if (task.createdBy?._id?.toString() !== userId) {
+    // Check if user has permission to delete (creator or admin)
+    const canDelete =
+      task.createdBy?._id?.toString() === userId || userRole === 'admin';
+
+    if (!canDelete) {
       throw new ForbiddenException(
         'You do not have permission to delete this task',
       );

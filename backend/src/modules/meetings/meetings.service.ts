@@ -47,6 +47,17 @@ export class MeetingsService {
       throw new BadRequestException('Meeting cannot be scheduled in the past');
     }
 
+    // Validate that all participants exist
+    const participantCount = await this.userModel.countDocuments({
+      _id: {
+        $in: createMeetingDto.participants.map((id) => new Types.ObjectId(id)),
+      },
+    });
+
+    if (participantCount !== createMeetingDto.participants.length) {
+      throw new BadRequestException('One or more participant IDs are invalid');
+    }
+
     // Check for scheduling conflicts
     await this.checkSchedulingConflicts(
       createMeetingDto.participants,
@@ -58,7 +69,7 @@ export class MeetingsService {
     const participantResponses = createMeetingDto.participants.map(
       (participantId) => ({
         userId: new Types.ObjectId(participantId),
-        status: 'pending',
+        status: ParticipantStatus.PENDING,
         respondedAt: null,
       }),
     );
@@ -129,7 +140,7 @@ export class MeetingsService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to send meeting invitation emails: ${error.message}`,
+        `Failed to send meeting invitation emails: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
       // Don't fail meeting creation if email sending fails
     }
@@ -352,13 +363,16 @@ export class MeetingsService {
     return updatedMeeting;
   }
 
-  async remove(id: string, userId: string): Promise<void> {
+  async remove(id: string, userId: string, userRole?: string): Promise<void> {
     const meeting = await this.findById(id);
 
-    // Check if user is organizer
-    if (meeting?.organizer?._id?.toString() !== userId) {
+    // Check if user is organizer or admin
+    if (
+      meeting?.organizer?._id?.toString() !== userId &&
+      userRole !== 'admin'
+    ) {
       throw new ForbiddenException(
-        'Only the organizer can delete this meeting',
+        'Only the organizer or admin can delete this meeting',
       );
     }
 

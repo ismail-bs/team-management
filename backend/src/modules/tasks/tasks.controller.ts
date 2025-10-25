@@ -234,7 +234,12 @@ export class TasksController {
     @Body() updateTaskDto: UpdateTaskDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.tasksService.update(id, updateTaskDto, req.user.sub);
+    return this.tasksService.update(
+      id,
+      updateTaskDto,
+      req.user.sub,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
@@ -253,7 +258,7 @@ export class TasksController {
   })
   @ApiParam({ name: 'id', description: 'Task ID' })
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    await this.tasksService.remove(id, req.user.sub);
+    await this.tasksService.remove(id, req.user.sub, req.user.role);
     return { message: 'Task deleted successfully' };
   }
 

@@ -520,14 +520,23 @@ export class ChatService {
   async deleteMessage(
     messageId: string,
     userId: string,
+    userRole?: string,
   ): Promise<MessageDocument> {
-    const message = await this.messageModel.findOne({
-      _id: messageId,
-      sender: userId,
-    });
+    // Find the message first
+    const message = await this.messageModel.findById(messageId);
 
     if (!message) {
-      throw new NotFoundException('Message not found or access denied');
+      throw new NotFoundException('Message not found');
+    }
+
+    // Check if user can delete (sender or admin)
+    const canDelete =
+      message.sender?.toString() === userId || userRole === 'admin';
+
+    if (!canDelete) {
+      throw new ForbiddenException(
+        'You can only delete your own messages or be an admin',
+      );
     }
 
     message.isDeleted = true;

@@ -179,11 +179,9 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
       newErrors.participants = "At least one participant is required";
     }
 
-    // Meeting link validation - REQUIRED
-    if (!formData.meetingLink.trim()) {
-      newErrors.meetingLink = "Meeting link is required";
-    } else {
-      // Validate URL format
+    // Meeting link validation - OPTIONAL but validate format if provided
+    if (formData.meetingLink.trim()) {
+      // Validate URL format only if provided
       try {
         new URL(formData.meetingLink);
       } catch {
@@ -392,7 +390,7 @@ export function AddMeetingDialog({ open, onOpenChange, onSubmit }: AddMeetingDia
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="meetingLink">Meeting Link *</Label>
+                <Label htmlFor="meetingLink">Meeting Link</Label>
                 <Input
                   id="meetingLink"
                   type="url"

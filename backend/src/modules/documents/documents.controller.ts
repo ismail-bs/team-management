@@ -223,6 +223,7 @@ export class DocumentsController {
       id,
       updateDocumentDto,
       req.user.sub,
+      req.user.role,
     );
   }
 

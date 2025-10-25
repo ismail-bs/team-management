@@ -216,7 +216,7 @@ export function ViewMeetingDialog({ open, onOpenChange, meeting, onEdit, onDelet
 
         {/* Footer Actions */}
         <div className="flex justify-between px-6 py-4 border-t bg-background">
-          {!isPast && canEdit && (
+          {canEdit && (
             <Button 
               variant="destructive" 
               onClick={() => {

@@ -253,7 +253,11 @@ export class ChatController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const deleted = await this.chatService.deleteMessage(id, req.user.sub);
+    const deleted = await this.chatService.deleteMessage(
+      id,
+      req.user.sub,
+      req.user.role,
+    );
 
     // Emit WebSocket event to conversation room so clients can update UI
     const conversationId =

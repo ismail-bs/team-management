@@ -752,7 +752,7 @@ export default function Meetings() {
           setViewMeetingOpen(false);
           setAddNotesOpen(true);
         }}
-        canEdit={canCreateMeeting}
+        canEdit={canCreateMeeting || selectedMeeting?.organizer?._id === user?._id}
       />
 
       <EditMeetingDialog

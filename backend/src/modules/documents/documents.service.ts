@@ -370,6 +370,7 @@ export class DocumentsService {
     id: string,
     updateDocumentDto: UpdateDocumentDto,
     userId: string,
+    userRole?: string,
   ): Promise<DocumentDocument> {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Invalid document ID');
@@ -385,9 +386,14 @@ export class DocumentsService {
       throw new NotFoundException('Document not found');
     }
 
-    // Only the uploader can update the document
-    if (document.uploadedBy?._id?.toString() !== userId) {
-      throw new ForbiddenException('Only the document uploader can update it');
+    // Only the uploader or admin can update the document
+    const isUploader = document.uploadedBy?._id?.toString() === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isUploader && !isAdmin) {
+      throw new ForbiddenException(
+        'Only the document uploader or admin can update it',
+      );
     }
 
     // Prepare update data
